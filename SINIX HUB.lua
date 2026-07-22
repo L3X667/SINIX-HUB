@@ -63,11 +63,23 @@ local function ripple(btn)
         r.ZIndex                 = btn.ZIndex + 3
         r.Parent                 = btn
         rnd(r, 9999)
-        local t = TweenService:Create(r, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        local t = TweenService:Create(r,
+            TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
             { Size = UDim2.new(2.5,0,2.5,0), BackgroundTransparency = 1 })
         t:Play()
         t.Completed:Connect(function() r:Destroy() end)
     end)
+end
+
+-- ── FIRE REMOTE ─────────────────────────────────────────────
+local function fireRemote(name, ...)
+    local rs  = game:GetService("ReplicatedStorage")
+    local rem = rs:FindFirstChild(name, true)
+    if rem and rem:IsA("RemoteEvent") then
+        rem:FireServer(...)
+    else
+        warn("[SinixHub] Remote not found: " .. name)
+    end
 end
 
 -- ── TOAST ───────────────────────────────────────────────────
@@ -102,12 +114,14 @@ local function toast(msg, col)
                 Text           = msg,
                 ZIndex         = 91,
             })
-            TweenService:Create(tf, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+            TweenService:Create(tf,
+                TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
                 { Size = UDim2.new(0,340,0,42) }):Play()
             task.wait(2.4)
-            local o = TweenService:Create(tf, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+            local o = TweenService:Create(tf,
+                TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
                 { Size = UDim2.new(0,0,0,42), BackgroundTransparency = 1 })
-            o:Play(); o.Completed:Wait()
+            o:Play() ; o.Completed:Wait()
             tf:Destroy()
             task.wait(0.05)
         end
@@ -125,8 +139,8 @@ Root.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Root.Parent         = pGui
 
 -- ── FENÊTRE PRINCIPALE ──────────────────────────────────────
-local MW, MH   = 860, 520
-local SB_W     = 180
+local MW, MH = 860, 520
+local SB_W   = 180
 local menuOpen = true
 
 local Win = Instance.new("Frame")
@@ -144,13 +158,13 @@ rnd(Win, 10)
 bdr(Win, C.border, 1.5)
 
 local shadow = Instance.new("Frame")
-shadow.Size             = UDim2.new(1, 20, 1, 20)
-shadow.Position         = UDim2.new(0,-10,0,10)
-shadow.BackgroundColor3 = Color3.fromRGB(0,0,0)
+shadow.Size                   = UDim2.new(1,20,1,20)
+shadow.Position               = UDim2.new(0,-10,0,10)
+shadow.BackgroundColor3       = Color3.fromRGB(0,0,0)
 shadow.BackgroundTransparency = 0.6
-shadow.BorderSizePixel  = 0
-shadow.ZIndex           = 9
-shadow.Parent           = Win
+shadow.BorderSizePixel        = 0
+shadow.ZIndex                 = 9
+shadow.Parent                 = Win
 rnd(shadow, 14)
 
 -- ── SIDEBAR ─────────────────────────────────────────────────
@@ -163,7 +177,7 @@ Sidebar.Parent           = Win
 rnd(Sidebar, 10)
 
 local sbCover = Instance.new("Frame")
-sbCover.Size             = UDim2.new(0, 10, 1, 0)
+sbCover.Size             = UDim2.new(0,10,1,0)
 sbCover.Position         = UDim2.new(1,-10,0,0)
 sbCover.BackgroundColor3 = C.sidebar
 sbCover.BorderSizePixel  = 0
@@ -171,8 +185,8 @@ sbCover.ZIndex           = 12
 sbCover.Parent           = Sidebar
 
 lbl(Sidebar, {
-    Size           = UDim2.new(1, 0, 0, 60),
-    Position       = UDim2.new(0, 0, 0, 0),
+    Size           = UDim2.new(1,0,0,60),
+    Position       = UDim2.new(0,0,0,0),
     Font           = Enum.Font.GothamBold,
     TextSize       = 20,
     TextColor3     = C.white,
@@ -191,7 +205,7 @@ sbSep.Parent           = Sidebar
 local discordBtn = Instance.new("TextButton")
 discordBtn.Size             = UDim2.new(1,-16,0,38)
 discordBtn.Position         = UDim2.new(0,8,1,-48)
-discordBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+discordBtn.BackgroundColor3 = Color3.fromRGB(88,101,242)
 discordBtn.BorderSizePixel  = 0
 discordBtn.Font             = Enum.Font.GothamBold
 discordBtn.TextSize         = 13
@@ -212,15 +226,19 @@ dcIcon.Parent                 = discordBtn
 
 discordBtn.MouseEnter:Connect(function()
     TweenService:Create(discordBtn, TweenInfo.new(0.12),
-        { BackgroundColor3 = Color3.fromRGB(71, 82, 196) }):Play()
+        { BackgroundColor3 = Color3.fromRGB(71,82,196) }):Play()
 end)
 discordBtn.MouseLeave:Connect(function()
     TweenService:Create(discordBtn, TweenInfo.new(0.12),
-        { BackgroundColor3 = Color3.fromRGB(88, 101, 242) }):Play()
+        { BackgroundColor3 = Color3.fromRGB(88,101,242) }):Play()
 end)
 discordBtn.MouseButton1Click:Connect(function()
-    setclipboard("https://discord.gg/DbHsGBckyc")
-    toast("󰙯  Lien copié — colle dans ton navigateur", Color3.fromRGB(88, 101, 242))
+    local ok = pcall(setclipboard, "https://discord.gg/DbHsGBckyc")
+    if ok then
+        toast("󰙯  Lien copié — colle dans ton navigateur", Color3.fromRGB(88,101,242))
+    else
+        toast("󰙯  discord.gg/DbHsGBckyc", Color3.fromRGB(88,101,242))
+    end
 end)
 
 local SbNav = Instance.new("Frame")
@@ -232,7 +250,7 @@ SbNav.Parent                 = Sidebar
 
 local sbLayout = Instance.new("UIListLayout")
 sbLayout.SortOrder = Enum.SortOrder.LayoutOrder
-sbLayout.Padding   = UDim.new(0, 0)
+sbLayout.Padding   = UDim.new(0,0)
 sbLayout.Parent    = SbNav
 
 -- ── TOPBAR ──────────────────────────────────────────────────
@@ -253,13 +271,13 @@ topSep.ZIndex           = 13
 topSep.Parent           = TopBar
 
 lbl(TopBar, {
-    Size     = UDim2.new(0,30,1,0),
-    Position = UDim2.new(0,14,0,0),
-    Font     = Enum.Font.GothamBold,
-    TextSize = 16,
+    Size       = UDim2.new(0,30,1,0),
+    Position   = UDim2.new(0,14,0,0),
+    Font       = Enum.Font.GothamBold,
+    TextSize   = 16,
     TextColor3 = C.muted,
-    Text     = "🔍",
-    ZIndex   = 14,
+    Text       = "🔍",
+    ZIndex     = 14,
 })
 
 local searchBox = Instance.new("TextBox")
@@ -290,34 +308,34 @@ moveBtn.ZIndex           = 14
 moveBtn.Parent           = TopBar
 rnd(moveBtn, 6)
 moveBtn.MouseButton1Click:Connect(function()
-    Win.Draggable = not Win.Draggable
+    Win.Draggable  = not Win.Draggable
     moveBtn.TextColor3 = Win.Draggable and C.muted or C.accent
 end)
 
 -- ── CONTENT ZONE ────────────────────────────────────────────
 local ContentScroll = Instance.new("ScrollingFrame")
-ContentScroll.Size                 = UDim2.new(1,-SB_W-8,1,-58)
-ContentScroll.Position             = UDim2.new(0,SB_W+4,0,54)
+ContentScroll.Size                   = UDim2.new(1,-SB_W-8,1,-58)
+ContentScroll.Position               = UDim2.new(0,SB_W+4,0,54)
 ContentScroll.BackgroundTransparency = 1
-ContentScroll.BorderSizePixel      = 0
-ContentScroll.ScrollBarThickness   = 3
-ContentScroll.ScrollBarImageColor3 = C.accent
-ContentScroll.AutomaticCanvasSize  = Enum.AutomaticSize.Y
-ContentScroll.CanvasSize           = UDim2.new(0,0,0,0)
-ContentScroll.ZIndex               = 11
-ContentScroll.Parent               = Win
+ContentScroll.BorderSizePixel        = 0
+ContentScroll.ScrollBarThickness     = 3
+ContentScroll.ScrollBarImageColor3   = C.accent
+ContentScroll.AutomaticCanvasSize    = Enum.AutomaticSize.Y
+ContentScroll.CanvasSize             = UDim2.new(0,0,0,0)
+ContentScroll.ZIndex                 = 11
+ContentScroll.Parent                 = Win
 
 local czL = Instance.new("UIListLayout")
-czL.Padding   = UDim.new(0, 10)
-czL.SortOrder = Enum.SortOrder.LayoutOrder
+czL.Padding       = UDim.new(0,10)
+czL.SortOrder     = Enum.SortOrder.LayoutOrder
 czL.FillDirection = Enum.FillDirection.Vertical
-czL.Parent    = ContentScroll
+czL.Parent        = ContentScroll
 
 local czP = Instance.new("UIPadding")
-czP.PaddingLeft   = UDim.new(0, 10)
-czP.PaddingRight  = UDim.new(0, 10)
-czP.PaddingTop    = UDim.new(0, 10)
-czP.PaddingBottom = UDim.new(0, 10)
+czP.PaddingLeft   = UDim.new(0,10)
+czP.PaddingRight  = UDim.new(0,10)
+czP.PaddingTop    = UDim.new(0,10)
+czP.PaddingBottom = UDim.new(0,10)
 czP.Parent        = ContentScroll
 
 local footer = lbl(Win, {
@@ -361,9 +379,9 @@ local function makeCard(titleTxt, order, parent)
     innerL.SortOrder = Enum.SortOrder.LayoutOrder
     innerL.Parent    = inner
 
-    local innerPadBottom = Instance.new("UIPadding")
-    innerPadBottom.PaddingBottom = UDim.new(0,10)
-    innerPadBottom.Parent        = inner
+    local innerPad = Instance.new("UIPadding")
+    innerPad.PaddingBottom = UDim.new(0,10)
+    innerPad.Parent        = inner
 
     lbl(wrap, {
         Size           = UDim2.new(1,-16,0,28),
@@ -383,11 +401,11 @@ local function mkToggle(parent, labelTxt, order, default, cb)
     local state = default or false
 
     local row = Instance.new("Frame")
-    row.Size             = UDim2.new(1,0,0,32)
+    row.Size                   = UDim2.new(1,0,0,32)
     row.BackgroundTransparency = 1
-    row.LayoutOrder      = order
-    row.ZIndex           = 14
-    row.Parent           = parent
+    row.LayoutOrder            = order
+    row.ZIndex                 = 14
+    row.Parent                 = parent
 
     lbl(row, {
         Size           = UDim2.new(1,-60,1,0),
@@ -429,7 +447,8 @@ local function mkToggle(parent, labelTxt, order, default, cb)
         state = not state
         TweenService:Create(track, TweenInfo.new(0.15),
             { BackgroundColor3 = state and C.accent or C.input }):Play()
-        TweenService:Create(knob, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        TweenService:Create(knob,
+            TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
             { Position = state and UDim2.new(0,25,0.5,-8) or UDim2.new(0,3,0.5,-8) }):Play()
         if cb then cb(state) end
     end)
@@ -441,11 +460,11 @@ local function mkSlider(parent, labelTxt, minV, maxV, defV, order, cb)
     local cur = defV
 
     local wrap = Instance.new("Frame")
-    wrap.Size             = UDim2.new(1,0,0,56)
+    wrap.Size                   = UDim2.new(1,0,0,56)
     wrap.BackgroundTransparency = 1
-    wrap.LayoutOrder      = order
-    wrap.ZIndex           = 14
-    wrap.Parent           = parent
+    wrap.LayoutOrder            = order
+    wrap.ZIndex                 = 14
+    wrap.Parent                 = parent
 
     lbl(wrap, {
         Size           = UDim2.new(1,0,0,18),
@@ -476,12 +495,12 @@ local function mkSlider(parent, labelTxt, minV, maxV, defV, order, cb)
     rnd(fill, 4)
 
     local valL = lbl(track, {
-        Size           = UDim2.new(1,0,1,0),
-        Font           = Enum.Font.GothamBold,
-        TextSize       = 12,
-        TextColor3     = C.white,
-        Text           = cur .. "/" .. maxV,
-        ZIndex         = 17,
+        Size       = UDim2.new(1,0,1,0),
+        Font       = Enum.Font.GothamBold,
+        TextSize   = 12,
+        TextColor3 = C.white,
+        Text       = cur .. "/" .. maxV,
+        ZIndex     = 17,
     })
 
     local dragging = false
@@ -536,10 +555,12 @@ local function mkButton(parent, labelTxt, order, cb)
     ripple(btn)
 
     btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.12), { BackgroundColor3 = C.accent }):Play()
+        TweenService:Create(btn, TweenInfo.new(0.12),
+            { BackgroundColor3 = C.accent }):Play()
     end)
     btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.12), { BackgroundColor3 = C.input }):Play()
+        TweenService:Create(btn, TweenInfo.new(0.12),
+            { BackgroundColor3 = C.input }):Play()
     end)
     btn.MouseButton1Click:Connect(function()
         if cb then cb() end
@@ -555,20 +576,19 @@ local activeTabBtn = nil
 
 local function mkSidebarTab(name, order, fn)
     local btn = Instance.new("TextButton")
-    btn.Size             = UDim2.new(1,0,0,42)
-    btn.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    btn.Size                   = UDim2.new(1,0,0,42)
     btn.BackgroundTransparency = 1
-    btn.BorderSizePixel  = 0
-    btn.Font             = Enum.Font.GothamSemibold
-    btn.TextSize         = 15
-    btn.TextColor3       = C.muted
-    btn.TextXAlignment   = Enum.TextXAlignment.Left
-    btn.Text             = "   " .. name
-    btn.AutoButtonColor  = false
-    btn.LayoutOrder      = order
-    btn.ClipsDescendants = true
-    btn.ZIndex           = 14
-    btn.Parent           = SbNav
+    btn.BorderSizePixel        = 0
+    btn.Font                   = Enum.Font.GothamSemibold
+    btn.TextSize               = 15
+    btn.TextColor3             = C.muted
+    btn.TextXAlignment         = Enum.TextXAlignment.Left
+    btn.Text                   = "   " .. name
+    btn.AutoButtonColor        = false
+    btn.LayoutOrder            = order
+    btn.ClipsDescendants       = true
+    btn.ZIndex                 = 14
+    btn.Parent                 = SbNav
 
     local bar = Instance.new("Frame")
     bar.Name             = "bar"
@@ -586,9 +606,9 @@ local function mkSidebarTab(name, order, fn)
             local ob = activeTabBtn:FindFirstChild("bar")
             if ob then ob.Visible = false end
         end
-        activeTabBtn        = btn
-        btn.TextColor3      = C.white
-        bar.Visible         = true
+        activeTabBtn   = btn
+        btn.TextColor3 = C.white
+        bar.Visible    = true
 
         for _, c in ipairs(ContentScroll:GetChildren()) do
             if not c:IsA("UIListLayout") and not c:IsA("UIPadding") then
@@ -599,7 +619,6 @@ local function mkSidebarTab(name, order, fn)
     end
 
     btn.MouseButton1Click:Connect(activate)
-
     btn.MouseEnter:Connect(function()
         if btn ~= activeTabBtn then
             TweenService:Create(btn, TweenInfo.new(0.1), { TextColor3 = C.text }):Play()
@@ -615,17 +634,16 @@ local function mkSidebarTab(name, order, fn)
 end
 
 -- ════════════════════════════════════════════════════════════
---  CONTENU : MAIN
+--  GRID HELPER
 -- ════════════════════════════════════════════════════════════
-
 local function makeGrid(order)
     local grid = Instance.new("Frame")
-    grid.Size             = UDim2.new(1,0,0,0)
-    grid.AutomaticSize    = Enum.AutomaticSize.Y
+    grid.Size                   = UDim2.new(1,0,0,0)
+    grid.AutomaticSize          = Enum.AutomaticSize.Y
     grid.BackgroundTransparency = 1
-    grid.LayoutOrder      = order
-    grid.ZIndex           = 12
-    grid.Parent           = ContentScroll
+    grid.LayoutOrder            = order
+    grid.ZIndex                 = 12
+    grid.Parent                 = ContentScroll
 
     local gl = Instance.new("UIGridLayout")
     gl.CellSize          = UDim2.new(0.5,-6,0,0)
@@ -641,6 +659,255 @@ local function makeGrid(order)
     return grid
 end
 
+-- ════════════════════════════════════════════════════════════
+--  FEATURES : UNLOCK FPS
+-- ════════════════════════════════════════════════════════════
+local function unlockFPS()
+    local ok = pcall(setfpscap, 0)
+    if not ok then
+        pcall(function() settings().Rendering.FrameRateManager = 0 end)
+    end
+end
+
+-- ════════════════════════════════════════════════════════════
+--  FEATURES : ANTI-AFK
+-- ════════════════════════════════════════════════════════════
+local _afkBound = false
+local function startAntiAFK()
+    if _afkBound then return end
+    _afkBound = true
+    local vu = game:GetService("VirtualUser")
+    lp.Idled:Connect(function()
+        vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        task.wait(0.1)
+        vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    end)
+end
+
+-- ════════════════════════════════════════════════════════════
+--  FEATURES : FULL BRIGHT
+-- ════════════════════════════════════════════════════════════
+local _fbOriginals = {}
+local _fbActive    = false
+
+local function setFullBright(on)
+    _fbActive = on
+    local lighting = game:GetService("Lighting")
+    if on then
+        _fbOriginals = {
+            Ambient        = lighting.Ambient,
+            OutdoorAmbient = lighting.OutdoorAmbient,
+            Brightness     = lighting.Brightness,
+            GlobalShadows  = lighting.GlobalShadows,
+            FogEnd         = lighting.FogEnd,
+            ClockTime      = lighting.ClockTime,
+        }
+        lighting.Ambient        = Color3.fromRGB(178,178,178)
+        lighting.OutdoorAmbient = Color3.fromRGB(178,178,178)
+        lighting.Brightness     = 2
+        lighting.GlobalShadows  = false
+        lighting.FogEnd         = 1e6
+        lighting.ClockTime      = 14
+        for _, v in ipairs(lighting:GetChildren()) do
+            if v:IsA("Atmosphere") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect") then
+                v.Enabled = false
+            end
+        end
+    else
+        for k, v in pairs(_fbOriginals) do lighting[k] = v end
+        for _, v in ipairs(lighting:GetChildren()) do
+            if v:IsA("Atmosphere") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect") then
+                v.Enabled = true
+            end
+        end
+    end
+end
+
+-- ════════════════════════════════════════════════════════════
+--  FEATURES : X-RAY
+-- ════════════════════════════════════════════════════════════
+local _xrayTargets  = {}
+local _xrayKeywords = { "wall","floor","brick","part","union","terrain" }
+
+local function setXRay(on)
+    if on then
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and v.CanCollide then
+                local low   = v.Name:lower()
+                local isEnv = false
+                for _, kw in ipairs(_xrayKeywords) do
+                    if low:find(kw) then isEnv = true ; break end
+                end
+                if isEnv then
+                    table.insert(_xrayTargets, { part=v, ltm=v.LocalTransparencyModifier })
+                    v.LocalTransparencyModifier = 0.75
+                end
+            end
+        end
+    else
+        for _, entry in ipairs(_xrayTargets) do
+            if entry.part and entry.part.Parent then
+                entry.part.LocalTransparencyModifier = entry.ltm
+            end
+        end
+        _xrayTargets = {}
+    end
+end
+
+-- ════════════════════════════════════════════════════════════
+--  FEATURES : RADAR
+-- ════════════════════════════════════════════════════════════
+local _radarActive = false
+local _radarFrame
+local _radarConn
+
+local RADAR_SIZE  = 180
+local RADAR_RANGE = 300
+local RADAR_DOT   = 6
+
+local function buildRadarUI()
+    if _radarFrame and _radarFrame.Parent then _radarFrame:Destroy() end
+
+    local frame = Instance.new("Frame")
+    frame.Name                   = "_sinixRadar"
+    frame.Size                   = UDim2.new(0,RADAR_SIZE,0,RADAR_SIZE)
+    frame.Position               = UDim2.new(1,-(RADAR_SIZE+16),0,16)
+    frame.BackgroundColor3       = Color3.fromRGB(10,10,10)
+    frame.BackgroundTransparency = 0.35
+    frame.BorderSizePixel        = 0
+    frame.ZIndex                 = 50
+    frame.Parent                 = Root
+    rnd(frame, RADAR_SIZE/2)
+    bdr(frame, C.accent, 1.5)
+
+    for _, r in ipairs({0.33, 0.66, 1.0}) do
+        local ring = Instance.new("Frame")
+        ring.Size                   = UDim2.new(r,0,r,0)
+        ring.AnchorPoint            = Vector2.new(0.5,0.5)
+        ring.Position               = UDim2.new(0.5,0,0.5,0)
+        ring.BackgroundTransparency = 1
+        ring.BorderSizePixel        = 0
+        ring.ZIndex                 = 51
+        ring.Parent                 = frame
+        bdr(ring, Color3.fromRGB(60,60,60), 1)
+        rnd(ring, RADAR_SIZE/2)
+    end
+
+    for _, axis in ipairs({"H","V"}) do
+        local line = Instance.new("Frame")
+        line.AnchorPoint      = Vector2.new(0.5,0.5)
+        line.Position         = UDim2.new(0.5,0,0.5,0)
+        line.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        line.BorderSizePixel  = 0
+        line.ZIndex           = 51
+        line.Size             = axis=="H" and UDim2.new(1,-4,0,1) or UDim2.new(0,1,1,-4)
+        line.Parent           = frame
+    end
+
+    local selfDot = Instance.new("Frame")
+    selfDot.Size             = UDim2.new(0,RADAR_DOT,0,RADAR_DOT)
+    selfDot.AnchorPoint      = Vector2.new(0.5,0.5)
+    selfDot.Position         = UDim2.new(0.5,0,0.5,0)
+    selfDot.BackgroundColor3 = C.success
+    selfDot.BorderSizePixel  = 0
+    selfDot.ZIndex           = 53
+    selfDot.Parent           = frame
+    rnd(selfDot, RADAR_DOT/2)
+
+    _radarFrame = frame
+    return frame
+end
+
+local function startRadar()
+    local frame = buildRadarUI()
+    local dots  = {}
+
+    _radarConn = RunService.Heartbeat:Connect(function()
+        local myChar = lp.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return end
+
+        local cam = workspace.CurrentCamera
+        local yaw = math.atan2(-cam.CFrame.LookVector.X, -cam.CFrame.LookVector.Z)
+
+        for name, dot in pairs(dots) do
+            if not Players:FindFirstChild(name) then
+                dot:Destroy() ; dots[name] = nil
+            end
+        end
+
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= lp then
+                local tChar = p.Character
+                local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
+
+                if tRoot then
+                    local delta = tRoot.Position - myRoot.Position
+                    local dist  = Vector2.new(delta.X, delta.Z).Magnitude
+                    local angle = math.atan2(delta.X, delta.Z) - yaw
+                    local norm  = math.min(dist / RADAR_RANGE, 1)
+                    local rx    = 0.5 + math.sin(angle) * norm * 0.46
+                    local ry    = 0.5 - math.cos(angle) * norm * 0.46
+
+                    if not dots[p.Name] then
+                        local dot = Instance.new("Frame")
+                        dot.Size             = UDim2.new(0,RADAR_DOT,0,RADAR_DOT)
+                        dot.AnchorPoint      = Vector2.new(0.5,0.5)
+                        dot.BackgroundColor3 = C.accent
+                        dot.BorderSizePixel  = 0
+                        dot.ZIndex           = 52
+                        dot.Parent           = frame
+                        rnd(dot, RADAR_DOT/2)
+
+                        local tip = Instance.new("TextLabel")
+                        tip.Size                   = UDim2.new(0,80,0,16)
+                        tip.Position               = UDim2.new(0,8,0,0)
+                        tip.BackgroundColor3       = Color3.fromRGB(10,10,10)
+                        tip.BackgroundTransparency = 0.3
+                        tip.Font                   = Enum.Font.GothamBold
+                        tip.TextSize               = 10
+                        tip.TextColor3             = C.text
+                        tip.Text                   = p.Name
+                        tip.BorderSizePixel        = 0
+                        tip.Visible                = false
+                        tip.ZIndex                 = 54
+                        tip.Parent                 = dot
+                        rnd(tip, 3)
+
+                        dot.MouseEnter:Connect(function() tip.Visible = true  end)
+                        dot.MouseLeave:Connect(function() tip.Visible = false end)
+                        dots[p.Name] = dot
+                    end
+
+                    local dot = dots[p.Name]
+                    dot.Position = UDim2.new(rx,0,ry,0)
+
+                    local hum = tChar:FindFirstChildOfClass("Humanoid")
+                    local hp  = hum and hum.Health or 100
+                    dot.BackgroundColor3 = hp > 60
+                        and C.accent
+                        or  hp > 25
+                        and Color3.fromRGB(220,180,40)
+                        or  Color3.fromRGB(210,60,60)
+                else
+                    if dots[p.Name] then
+                        dots[p.Name]:Destroy() ; dots[p.Name] = nil
+                    end
+                end
+            end
+        end
+    end)
+end
+
+local function stopRadar()
+    if _radarConn then _radarConn:Disconnect() ; _radarConn = nil end
+    if _radarFrame and _radarFrame.Parent then _radarFrame:Destroy() end
+    _radarFrame = nil
+end
+
+-- ════════════════════════════════════════════════════════════
+--  ÉTAT GLOBAL : MAIN TAB
+-- ════════════════════════════════════════════════════════════
 local _noclipConn
 local _flyConn, _bv, _bg
 local _speedConn, _jumpConn
@@ -654,14 +921,13 @@ local _instantReelOn = false
 local _sellInterval  = 30
 local _catchChance   = 100
 local _reelSnap      = 0
-local _autoFishThread, _autoSellThread
 
-local function fireRemote(name, ...)
-    local rs = game:GetService("ReplicatedStorage")
-    local rem = rs:FindFirstChild(name, true)
-    if rem and rem:IsA("RemoteEvent") then rem:FireServer(...) end
-end
+local _autoFishThread
+local _autoSellThread
 
+-- ════════════════════════════════════════════════════════════
+--  CONTENU : MAIN
+-- ════════════════════════════════════════════════════════════
 local function buildMain()
     local grid = makeGrid(1)
 
@@ -692,6 +958,7 @@ local function buildMain()
     mkToggle(afInner, "Auto Fish", 2, _autoFishOn, function(s)
         _autoFishOn = s
         if s then
+            if _autoFishThread then task.cancel(_autoFishThread) end
             _autoFishThread = task.spawn(function()
                 while _autoFishOn do
                     fireRemote("CastLine")
@@ -702,6 +969,7 @@ local function buildMain()
             end)
             toast("✓ Auto Fish ON", C.success)
         else
+            if _autoFishThread then task.cancel(_autoFishThread) ; _autoFishThread = nil end
             toast("Auto Fish OFF", C.muted)
         end
     end)
@@ -721,6 +989,7 @@ local function buildMain()
     mkToggle(asInner, "Auto Sell", 3, _autoSellOn, function(s)
         _autoSellOn = s
         if s then
+            if _autoSellThread then task.cancel(_autoSellThread) end
             _autoSellThread = task.spawn(function()
                 while _autoSellOn do
                     fireRemote("SellAll")
@@ -731,6 +1000,7 @@ local function buildMain()
             end)
             toast("✓ Auto Sell ON — toutes les " .. _sellInterval .. "s", C.success)
         else
+            if _autoSellThread then task.cancel(_autoSellThread) ; _autoSellThread = nil end
             toast("Auto Sell OFF", C.muted)
         end
     end)
@@ -743,8 +1013,8 @@ local function buildMain()
         local cfg = rs:FindFirstChild("FishingConfig", true)
         if cfg and cfg:IsA("ModuleScript") then
             local ok, t = pcall(require, cfg)
-            if ok and type(t) == "table" and t.CatchChance ~= nil then
-                t.CatchChance = v / 100
+            if ok and type(t)=="table" and t.CatchChance~=nil then
+                t.CatchChance = v/100
             end
         end
     end)
@@ -755,8 +1025,8 @@ local function buildMain()
         local cfg = rs:FindFirstChild("FishingConfig", true)
         if cfg and cfg:IsA("ModuleScript") then
             local ok, t = pcall(require, cfg)
-            if ok and type(t) == "table" and t.SnapChance ~= nil then
-                t.SnapChance = v / 100
+            if ok and type(t)=="table" and t.SnapChance~=nil then
+                t.SnapChance = v/100
             end
         end
     end)
@@ -827,15 +1097,14 @@ end
 -- ════════════════════════════════════════════════════════════
 local function buildTeleports()
     local _, toolInner = makeCard("TP Tool", 1)
-
     local targetName = ""
 
     local targetRow = Instance.new("Frame")
-    targetRow.Size             = UDim2.new(1,0,0,28)
+    targetRow.Size                   = UDim2.new(1,0,0,28)
     targetRow.BackgroundTransparency = 1
-    targetRow.LayoutOrder      = 1
-    targetRow.ZIndex           = 15
-    targetRow.Parent           = toolInner
+    targetRow.LayoutOrder            = 1
+    targetRow.ZIndex                 = 15
+    targetRow.Parent                 = toolInner
 
     lbl(targetRow, {
         Size       = UDim2.new(0,60,1,0),
@@ -847,21 +1116,20 @@ local function buildTeleports()
     })
 
     local targetBox = Instance.new("TextBox")
-    targetBox.Size             = UDim2.new(1,-68,0,24)
-    targetBox.Position         = UDim2.new(0,64,0.5,-12)
-    targetBox.BackgroundColor3 = C.input
-    targetBox.BorderSizePixel  = 0
-    targetBox.Font             = Enum.Font.Gotham
-    targetBox.TextSize         = 13
-    targetBox.TextColor3       = C.text
-    targetBox.PlaceholderText  = "Nom du joueur ou objet"
+    targetBox.Size              = UDim2.new(1,-68,0,24)
+    targetBox.Position          = UDim2.new(0,64,0.5,-12)
+    targetBox.BackgroundColor3  = C.input
+    targetBox.BorderSizePixel   = 0
+    targetBox.Font              = Enum.Font.Gotham
+    targetBox.TextSize          = 13
+    targetBox.TextColor3        = C.text
+    targetBox.PlaceholderText   = "Nom du joueur ou objet"
     targetBox.PlaceholderColor3 = C.muted
-    targetBox.ClearTextOnFocus = false
-    targetBox.ZIndex           = 16
-    targetBox.Parent           = targetRow
+    targetBox.ClearTextOnFocus  = false
+    targetBox.ZIndex            = 16
+    targetBox.Parent            = targetRow
     rnd(targetBox, 5)
     bdr(targetBox, C.border)
-
     targetBox.FocusLost:Connect(function() targetName = targetBox.Text end)
     targetBox:GetPropertyChangedSignal("Text"):Connect(function() targetName = targetBox.Text end)
 
@@ -873,7 +1141,7 @@ local function buildTeleports()
         local tChar = target.Character
         local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
         if root and tRoot then
-            root.CFrame = tRoot.CFrame * CFrame.new(0, 0, -3)
+            root.CFrame = tRoot.CFrame * CFrame.new(0,0,-3)
             toast("📍 TP → " .. target.Name, C.accent)
         else
             toast("❌ Personnage indisponible", C.err)
@@ -893,7 +1161,7 @@ local function buildTeleports()
             pos = primary and primary.CFrame
         end
         if root and pos then
-            root.CFrame = pos * CFrame.new(0, 3, -4)
+            root.CFrame = pos * CFrame.new(0,3,-4)
             toast("📍 TP → " .. obj.Name, C.accent)
         else
             toast("❌ Position indéterminée", C.err)
@@ -907,7 +1175,7 @@ local function buildTeleports()
         local tChar  = target.Character
         local tRoot  = tChar and tChar:FindFirstChild("HumanoidRootPart")
         if myRoot and tRoot then
-            tRoot.CFrame = myRoot.CFrame * CFrame.new(2, 0, 0)
+            tRoot.CFrame = myRoot.CFrame * CFrame.new(2,0,0)
             toast("📍 " .. target.Name .. " amené ici", C.accent)
         else
             toast("❌ Impossible", C.err)
@@ -919,32 +1187,33 @@ local function buildTeleports()
 
     local function coordRow(axis, order)
         local row = Instance.new("Frame")
-        row.Size             = UDim2.new(1,0,0,28)
+        row.Size                   = UDim2.new(1,0,0,28)
         row.BackgroundTransparency = 1
-        row.LayoutOrder      = order
-        row.ZIndex           = 15
-        row.Parent           = customInner
+        row.LayoutOrder            = order
+        row.ZIndex                 = 15
+        row.Parent                 = customInner
 
         lbl(row, {
-            Size     = UDim2.new(0,20,1,0),
-            Font     = Enum.Font.GothamBold,
-            TextSize = 13,
+            Size       = UDim2.new(0,20,1,0),
+            Font       = Enum.Font.GothamBold,
+            TextSize   = 13,
             TextColor3 = C.accent,
-            Text     = axis:upper(),
-            ZIndex   = 16,
+            Text       = axis:upper(),
+            ZIndex     = 16,
         })
+
         local box = Instance.new("TextBox")
-        box.Size             = UDim2.new(1,-28,0,24)
-        box.Position         = UDim2.new(0,24,0.5,-12)
-        box.BackgroundColor3 = C.input
-        box.BorderSizePixel  = 0
-        box.Font             = Enum.Font.Gotham
-        box.TextSize         = 13
-        box.TextColor3       = C.text
-        box.Text             = "0"
-        box.ClearTextOnFocus = false
-        box.ZIndex           = 16
-        box.Parent           = row
+        box.Size              = UDim2.new(1,-28,0,24)
+        box.Position          = UDim2.new(0,24,0.5,-12)
+        box.BackgroundColor3  = C.input
+        box.BorderSizePixel   = 0
+        box.Font              = Enum.Font.Gotham
+        box.TextSize          = 13
+        box.TextColor3        = C.text
+        box.Text              = "0"
+        box.ClearTextOnFocus  = false
+        box.ZIndex            = 16
+        box.Parent            = row
         rnd(box, 5)
         bdr(box, C.border)
         box.FocusLost:Connect(function() coords[axis] = tonumber(box.Text) or 0 end)
@@ -1000,11 +1269,11 @@ local function buildMisc()
     local infiConn
 
     local ijFrame = Instance.new("Frame")
-    ijFrame.Size             = UDim2.new(1,0,0,32)
+    ijFrame.Size                   = UDim2.new(1,0,0,32)
     ijFrame.BackgroundTransparency = 1
-    ijFrame.LayoutOrder      = 1
-    ijFrame.ZIndex           = 14
-    ijFrame.Parent           = abInner
+    ijFrame.LayoutOrder            = 1
+    ijFrame.ZIndex                 = 14
+    ijFrame.Parent                 = abInner
 
     local ijBtn = Instance.new("TextButton")
     ijBtn.Size             = UDim2.new(1,0,1,0)
@@ -1031,7 +1300,6 @@ local function buildMisc()
             TweenService:Create(ijBtn, TweenInfo.new(0.12), { BackgroundColor3 = C.input }):Play()
         end
     end)
-
     ijBtn.MouseButton1Click:Connect(function()
         infiActive = not infiActive
         if infiActive then
@@ -1045,7 +1313,7 @@ local function buildMisc()
         else
             ijBtn.Text             = "InfiniJump  ·  OFF"
             ijBtn.BackgroundColor3 = C.input
-            if infiConn then infiConn:Disconnect() infiConn = nil end
+            if infiConn then infiConn:Disconnect() ; infiConn = nil end
             toast("🦘 InfiniJump OFF", C.muted)
         end
     end)
@@ -1115,8 +1383,8 @@ local _espNameConns     = {}
 local _espBoxes         = {}
 local _espNames         = {}
 
-local ESP_COLOR  = Color3.fromRGB(120, 80, 220)
-local NAME_COLOR = Color3.fromRGB(230, 230, 230)
+local ESP_COLOR  = Color3.fromRGB(120,80,220)
+local NAME_COLOR = Color3.fromRGB(230,230,230)
 
 local function espClearSkeleton()
     for _, v in pairs(_espBoxes) do if v and v.Parent then v:Destroy() end end
@@ -1138,13 +1406,13 @@ local function drawSkeleton(player)
     if not char then return end
 
     local box = Instance.new("SelectionBox")
-    box.Color3               = ESP_COLOR
-    box.LineThickness        = 0.04
-    box.SurfaceTransparency  = 0.85
-    box.SurfaceColor3        = ESP_COLOR
-    box.Adornee              = char
-    box.Parent               = workspace
-    _espBoxes[player.Name]   = box
+    box.Color3              = ESP_COLOR
+    box.LineThickness       = 0.04
+    box.SurfaceTransparency = 0.85
+    box.SurfaceColor3       = ESP_COLOR
+    box.Adornee             = char
+    box.Parent              = workspace
+    _espBoxes[player.Name]  = box
 
     local BONES = {
         {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
@@ -1270,7 +1538,9 @@ local function startDistLoop()
                     local hp    = hum and math.floor(hum.Health) or "?"
                     local maxhp = hum and math.floor(hum.MaxHealth) or "?"
                     local nameL = bg:FindFirstChildOfClass("TextLabel")
-                    if nameL then nameL.Text = p.Name .. "\n" .. dist .. "m  ❤ " .. hp .. "/" .. maxhp end
+                    if nameL then
+                        nameL.Text = p.Name .. "\n" .. dist .. "m  ❤ " .. hp .. "/" .. maxhp
+                    end
                 end
             end
         end
@@ -1281,11 +1551,11 @@ local function buildESP()
     local _, espInner = makeCard("ESP", 1)
 
     local colorRow = Instance.new("Frame")
-    colorRow.Size             = UDim2.new(1,0,0,32)
+    colorRow.Size                   = UDim2.new(1,0,0,32)
     colorRow.BackgroundTransparency = 1
-    colorRow.LayoutOrder      = 0
-    colorRow.ZIndex           = 14
-    colorRow.Parent           = espInner
+    colorRow.LayoutOrder            = 0
+    colorRow.ZIndex                 = 14
+    colorRow.Parent                 = espInner
 
     lbl(colorRow, {
         Size           = UDim2.new(0,80,1,0),
@@ -1298,11 +1568,11 @@ local function buildESP()
     })
 
     local colorPickerFrame = Instance.new("Frame")
-    colorPickerFrame.Size             = UDim2.new(0, #ESP_PALETTES * 26, 0, 22)
-    colorPickerFrame.Position         = UDim2.new(1, -(#ESP_PALETTES * 26), 0.5, -11)
+    colorPickerFrame.Size                   = UDim2.new(0, #ESP_PALETTES*26, 0, 22)
+    colorPickerFrame.Position               = UDim2.new(1, -(#ESP_PALETTES*26), 0.5, -11)
     colorPickerFrame.BackgroundTransparency = 1
-    colorPickerFrame.ZIndex           = 15
-    colorPickerFrame.Parent           = colorRow
+    colorPickerFrame.ZIndex                 = 15
+    colorPickerFrame.Parent                 = colorRow
 
     for i, pal in ipairs(ESP_PALETTES) do
         local dot = Instance.new("TextButton")
@@ -1315,14 +1585,12 @@ local function buildESP()
         dot.ZIndex           = 16
         dot.Parent           = colorPickerFrame
         rnd(dot, 9)
-
         dot.MouseButton1Click:Connect(function()
             _espPaletteIdx = i
             ESP_COLOR = pal.col
             for _, box in pairs(_espBoxes) do
                 if box and box.Parent then
-                    box.Color3        = ESP_COLOR
-                    box.SurfaceColor3 = ESP_COLOR
+                    box.Color3 = ESP_COLOR ; box.SurfaceColor3 = ESP_COLOR
                 end
             end
             for _, child in ipairs(colorPickerFrame:GetChildren()) do
@@ -1335,11 +1603,11 @@ local function buildESP()
     end
 
     local skelRow = Instance.new("Frame")
-    skelRow.Size             = UDim2.new(1,0,0,32)
+    skelRow.Size                   = UDim2.new(1,0,0,32)
     skelRow.BackgroundTransparency = 1
-    skelRow.LayoutOrder      = 1
-    skelRow.ZIndex           = 14
-    skelRow.Parent           = espInner
+    skelRow.LayoutOrder            = 1
+    skelRow.ZIndex                 = 14
+    skelRow.Parent                 = espInner
 
     lbl(skelRow, {
         Size           = UDim2.new(1,-120,1,0),
@@ -1381,12 +1649,15 @@ local function buildESP()
         _skeletonOn = not _skeletonOn
         TweenService:Create(skelTrack, TweenInfo.new(0.15),
             { BackgroundColor3 = _skeletonOn and C.accent or C.input }):Play()
-        TweenService:Create(skelKnob, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        TweenService:Create(skelKnob,
+            TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
             { Position = _skeletonOn and UDim2.new(0,25,0.5,-8) or UDim2.new(0,3,0.5,-8) }):Play()
         if _skeletonOn then
             for _, p in ipairs(Players:GetPlayers()) do drawSkeleton(p) end
             Players.PlayerAdded:Connect(function(p)
-                if _skeletonOn then p.CharacterAdded:Connect(function() task.wait(1) drawSkeleton(p) end) end
+                if _skeletonOn then
+                    p.CharacterAdded:Connect(function() task.wait(1) drawSkeleton(p) end)
+                end
             end)
             toast("💀 Squelette ESP ON", C.success)
         else
@@ -1408,7 +1679,6 @@ local function buildESP()
     refreshBtn.ZIndex           = 15
     refreshBtn.Parent           = skelRow
     rnd(refreshBtn, 5)
-
     refreshBtn.MouseEnter:Connect(function()
         TweenService:Create(refreshBtn, TweenInfo.new(0.1), { TextColor3 = C.accent }):Play()
     end)
@@ -1421,11 +1691,11 @@ local function buildESP()
     end)
 
     local nameRow = Instance.new("Frame")
-    nameRow.Size             = UDim2.new(1,0,0,32)
+    nameRow.Size                   = UDim2.new(1,0,0,32)
     nameRow.BackgroundTransparency = 1
-    nameRow.LayoutOrder      = 2
-    nameRow.ZIndex           = 14
-    nameRow.Parent           = espInner
+    nameRow.LayoutOrder            = 2
+    nameRow.ZIndex                 = 14
+    nameRow.Parent                 = espInner
 
     lbl(nameRow, {
         Size           = UDim2.new(1,-60,1,0),
@@ -1466,12 +1736,15 @@ local function buildESP()
         _nameOn = not _nameOn
         TweenService:Create(nameTrack, TweenInfo.new(0.15),
             { BackgroundColor3 = _nameOn and C.accent or C.input }):Play()
-        TweenService:Create(nameKnob, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        TweenService:Create(nameKnob,
+            TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
             { Position = _nameOn and UDim2.new(0,25,0.5,-8) or UDim2.new(0,3,0.5,-8) }):Play()
         if _nameOn then
             for _, p in ipairs(Players:GetPlayers()) do drawName(p) end
             Players.PlayerAdded:Connect(function(p)
-                if _nameOn then p.CharacterAdded:Connect(function() task.wait(1) drawName(p) end) end
+                if _nameOn then
+                    p.CharacterAdded:Connect(function() task.wait(1) drawName(p) end)
+                end
             end)
             startDistLoop()
             toast("🏷 Pseudo ESP ON", C.success)
@@ -1482,7 +1755,7 @@ local function buildESP()
     end)
 
     mkToggle(espInner, "Barre de vie", 3, false, function(s)
-        for pName, bg in pairs(_espNames) do
+        for _, bg in pairs(_espNames) do
             local existing = bg:FindFirstChild("_hpBar")
             if s and not existing then
                 local track = Instance.new("Frame")
@@ -1516,8 +1789,8 @@ local function buildESP()
                             local fill  = track and track:FindFirstChild("_hpFill")
                             local hum   = p.Character and p.Character:FindFirstChildOfClass("Humanoid")
                             if fill and hum and hum.MaxHealth > 0 then
-                                local ratio = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
-                                fill.Size = UDim2.new(ratio, 0, 1, 0)
+                                local ratio = math.clamp(hum.Health/hum.MaxHealth, 0, 1)
+                                fill.Size = UDim2.new(ratio,0,1,0)
                                 fill.BackgroundColor3 = ratio > 0.5
                                     and Color3.fromRGB(60,200,100)
                                     or  ratio > 0.25
@@ -1532,6 +1805,52 @@ local function buildESP()
         end
         toast(s and "❤ Barre de vie ON" or "❤ Barre de vie OFF",
               s and C.success or C.muted)
+    end)
+end
+
+-- ════════════════════════════════════════════════════════════
+--  CONTENU : VISUAL
+-- ════════════════════════════════════════════════════════════
+local function buildVisual()
+    local _, featInner = makeCard("Features Visuelles", 1)
+
+    mkToggle(featInner, "Full Bright", 1, false, function(s)
+        setFullBright(s)
+        toast(s and "☀ Full Bright ON" or "☀ Full Bright OFF",
+              s and C.success or C.muted)
+    end)
+
+    mkToggle(featInner, "X-Ray (murs)", 2, false, function(s)
+        setXRay(s)
+        toast(s and "👁 X-Ray ON" or "👁 X-Ray OFF",
+              s and C.success or C.muted)
+    end)
+
+    mkToggle(featInner, "Radar", 3, false, function(s)
+        if s then startRadar() else stopRadar() end
+        toast(s and "📡 Radar ON" or "📡 Radar OFF",
+              s and C.success or C.muted)
+    end)
+
+    local _, sysInner = makeCard("Système", 2)
+
+    mkToggle(sysInner, "Unlock FPS", 1, false, function(s)
+        if s then
+            unlockFPS()
+            toast("⚡ FPS débloqué", C.success)
+        else
+            pcall(setfpscap, 60)
+            toast("⚡ FPS → 60", C.muted)
+        end
+    end)
+
+    mkToggle(sysInner, "Anti-AFK", 2, false, function(s)
+        if s then
+            startAntiAFK()
+            toast("✓ Anti-AFK ON", C.success)
+        else
+            toast("Anti-AFK OFF", C.muted)
+        end
     end)
 end
 
@@ -1610,41 +1929,49 @@ local THEMES = {
 local function applyTheme(theme)
     C.accent  = theme.accent
     C.accentD = Color3.fromRGB(
-        math.max(0, math.floor(theme.accent.R * 255) - 30),
-        math.max(0, math.floor(theme.accent.G * 255) - 30),
-        math.max(0, math.floor(theme.accent.B * 255) - 30)
+        math.max(0, math.floor(theme.accent.R*255) - 30),
+        math.max(0, math.floor(theme.accent.G*255) - 30),
+        math.max(0, math.floor(theme.accent.B*255) - 30)
     )
     C.bg      = theme.bg
     C.card    = theme.card
     C.sidebar = theme.sidebar
     C.text    = theme.text
 
-    Win.BackgroundColor3             = C.bg
-    Sidebar.BackgroundColor3         = C.sidebar
-    sbCover.BackgroundColor3         = C.sidebar
-    TopBar.BackgroundColor3          = C.bg
-    footer.TextColor3                = C.muted
+    Win.BackgroundColor3               = C.bg
+    Sidebar.BackgroundColor3           = C.sidebar
+    sbCover.BackgroundColor3           = C.sidebar
+    TopBar.BackgroundColor3            = C.bg
+    footer.TextColor3                  = C.muted
     ContentScroll.ScrollBarImageColor3 = C.accent
 
     for _, v in ipairs(Win:GetDescendants()) do
         if v:IsA("Frame") then
-            local r,g,b = math.floor(v.BackgroundColor3.R*255), math.floor(v.BackgroundColor3.G*255), math.floor(v.BackgroundColor3.B*255)
-            if r==30 and g==30 and b==30 then v.BackgroundColor3 = C.card
-            elseif r==24 and g==24 and b==24 then v.BackgroundColor3 = C.sidebar
-            elseif r==18 and g==18 and b==18 then v.BackgroundColor3 = C.bg
-            elseif r==120 and g==80 and b==220 then v.BackgroundColor3 = C.accent end
+            local r,g,b = math.floor(v.BackgroundColor3.R*255),
+                          math.floor(v.BackgroundColor3.G*255),
+                          math.floor(v.BackgroundColor3.B*255)
+            if r==30 and g==30 and b==30        then v.BackgroundColor3 = C.card
+            elseif r==24 and g==24 and b==24    then v.BackgroundColor3 = C.sidebar
+            elseif r==18 and g==18 and b==18    then v.BackgroundColor3 = C.bg
+            elseif r==120 and g==80 and b==220  then v.BackgroundColor3 = C.accent end
         end
         if v:IsA("TextLabel") then
-            local r,g,b = math.floor(v.TextColor3.R*255), math.floor(v.TextColor3.G*255), math.floor(v.TextColor3.B*255)
-            if r==230 and g==230 and b==230 then v.TextColor3 = C.text
-            elseif r==120 and g==80 and b==220 then v.TextColor3 = C.accent end
+            local r,g,b = math.floor(v.TextColor3.R*255),
+                          math.floor(v.TextColor3.G*255),
+                          math.floor(v.TextColor3.B*255)
+            if r==230 and g==230 and b==230     then v.TextColor3 = C.text
+            elseif r==120 and g==80 and b==220  then v.TextColor3 = C.accent end
         end
         if v:IsA("TextButton") then
-            local r,g,b = math.floor(v.BackgroundColor3.R*255), math.floor(v.BackgroundColor3.G*255), math.floor(v.BackgroundColor3.B*255)
+            local r,g,b = math.floor(v.BackgroundColor3.R*255),
+                          math.floor(v.BackgroundColor3.G*255),
+                          math.floor(v.BackgroundColor3.B*255)
             if r==120 and g==80 and b==220 then v.BackgroundColor3 = C.accent end
         end
         if v:IsA("UIStroke") then
-            local r,g,b = math.floor(v.Color.R*255), math.floor(v.Color.G*255), math.floor(v.Color.B*255)
+            local r,g,b = math.floor(v.Color.R*255),
+                          math.floor(v.Color.G*255),
+                          math.floor(v.Color.B*255)
             if r==120 and g==80 and b==220 then v.Color = C.accent end
         end
     end
@@ -1678,8 +2005,8 @@ local function buildSettings()
 
     local _, infoInner = makeCard("Session", 2)
     local rows = {
-        "Joueur : " .. lp.Name,
-        "UserId : " .. lp.UserId,
+        "Joueur : "  .. lp.Name,
+        "UserId : "  .. lp.UserId,
         "PlaceId : " .. game.PlaceId,
         "Joueurs : " .. #Players:GetPlayers(),
     }
@@ -1696,7 +2023,6 @@ local function buildSettings()
         })
     end
 
-    -- ── THEME CARD ───────────────────────────────────────────
     local _, themeInner = makeCard("Thèmes", 3)
 
     local searchTheme = Instance.new("TextBox")
@@ -1716,16 +2042,16 @@ local function buildSettings()
     bdr(searchTheme, C.border)
 
     local themeScroll = Instance.new("ScrollingFrame")
-    themeScroll.Size                 = UDim2.new(1,0,0,300)
+    themeScroll.Size                   = UDim2.new(1,0,0,300)
     themeScroll.BackgroundTransparency = 1
-    themeScroll.BorderSizePixel      = 0
-    themeScroll.ScrollBarThickness   = 3
-    themeScroll.ScrollBarImageColor3 = C.accent
-    themeScroll.AutomaticCanvasSize  = Enum.AutomaticSize.Y
-    themeScroll.CanvasSize           = UDim2.new(0,0,0,0)
-    themeScroll.LayoutOrder          = 1
-    themeScroll.ZIndex               = 15
-    themeScroll.Parent               = themeInner
+    themeScroll.BorderSizePixel        = 0
+    themeScroll.ScrollBarThickness     = 3
+    themeScroll.ScrollBarImageColor3   = C.accent
+    themeScroll.AutomaticCanvasSize    = Enum.AutomaticSize.Y
+    themeScroll.CanvasSize             = UDim2.new(0,0,0,0)
+    themeScroll.LayoutOrder            = 1
+    themeScroll.ZIndex                 = 15
+    themeScroll.Parent                 = themeInner
 
     local themeGrid = Instance.new("UIGridLayout")
     themeGrid.CellSize    = UDim2.new(0.5,-6,0,52)
@@ -1738,7 +2064,7 @@ local function buildSettings()
     themePad.PaddingBottom = UDim.new(0,4)
     themePad.Parent        = themeScroll
 
-    local themeButtons    = {}
+    local themeButtons      = {}
     local activeThemeStroke = nil
 
     local function buildThemeButtons(filter)
@@ -1746,10 +2072,10 @@ local function buildSettings()
         themeButtons      = {}
         activeThemeStroke = nil
 
-        local lf = filter:lower()
+        local lf  = filter:lower()
         local idx = 0
         for _, theme in ipairs(THEMES) do
-            if lf == "" or theme.name:lower():find(lf, 1, true) then
+            if lf=="" or theme.name:lower():find(lf, 1, true) then
                 idx = idx + 1
                 local btn = Instance.new("TextButton")
                 btn.Size             = UDim2.new(1,0,1,0)
@@ -1783,35 +2109,36 @@ local function buildSettings()
                 })
 
                 local dotRow = Instance.new("Frame")
-                dotRow.Size             = UDim2.new(0,72,0,10)
-                dotRow.Position         = UDim2.new(0,6,1,-16)
+                dotRow.Size                   = UDim2.new(0,72,0,10)
+                dotRow.Position               = UDim2.new(0,6,1,-16)
                 dotRow.BackgroundTransparency = 1
-                dotRow.ZIndex           = 17
-                dotRow.Parent           = btn
+                dotRow.ZIndex                 = 17
+                dotRow.Parent                 = btn
 
                 local dotColors = { theme.accent, theme.card, theme.sidebar, theme.text }
                 for j, col in ipairs(dotColors) do
-                    local dot = Instance.new("Frame")
-                    dot.Size             = UDim2.new(0,10,0,10)
-                    dot.Position         = UDim2.new(0,(j-1)*14,0,0)
-                    dot.BackgroundColor3 = col
-                    dot.BorderSizePixel  = 0
-                    dot.ZIndex           = 18
-                    dot.Parent           = dotRow
-                    rnd(dot, 5)
+                    local d = Instance.new("Frame")
+                    d.Size             = UDim2.new(0,10,0,10)
+                    d.Position         = UDim2.new(0,(j-1)*14,0,0)
+                    d.BackgroundColor3 = col
+                    d.BorderSizePixel  = 0
+                    d.ZIndex           = 18
+                    d.Parent           = dotRow
+                    rnd(d, 5)
                 end
 
                 local stroke = bdr(btn, C.border, 1)
 
                 btn.MouseEnter:Connect(function()
-                    TweenService:Create(stroke, TweenInfo.new(0.1), { Color = theme.accent, Thickness = 1.5 }):Play()
+                    TweenService:Create(stroke, TweenInfo.new(0.1),
+                        { Color=theme.accent, Thickness=1.5 }):Play()
                 end)
                 btn.MouseLeave:Connect(function()
                     if activeThemeStroke ~= stroke then
-                        TweenService:Create(stroke, TweenInfo.new(0.1), { Color = C.border, Thickness = 1 }):Play()
+                        TweenService:Create(stroke, TweenInfo.new(0.1),
+                            { Color=C.border, Thickness=1 }):Play()
                     end
                 end)
-
                 btn.MouseButton1Click:Connect(function()
                     if activeThemeStroke then
                         activeThemeStroke.Color     = C.border
@@ -1836,16 +2163,17 @@ local function buildSettings()
 end
 
 -- ════════════════════════════════════════════════════════════
---  SIDEBAR TABS
+--  SIDEBAR TABS  (ordre final)
 -- ════════════════════════════════════════════════════════════
 local tMain,      activateMain      = mkSidebarTab("Main",      1, buildMain)
 local tTeleports, activateTeleports = mkSidebarTab("Teleports", 2, buildTeleports)
 local tMisc,      activateMisc      = mkSidebarTab("Misc",      3, buildMisc)
 local tESP,       activateESP       = mkSidebarTab("ESP",       4, buildESP)
-local tSettings,  activateSettings  = mkSidebarTab("Settings",  5, buildSettings)
+local tVisual,    activateVisual    = mkSidebarTab("Visual",    5, buildVisual)
+local tSettings,  activateSettings  = mkSidebarTab("Settings",  6, buildSettings)
 
 -- ════════════════════════════════════════════════════════════
---  TOGGLE MENU
+--  TOGGLE MENU  (RightShift)
 -- ════════════════════════════════════════════════════════════
 UserInputService.InputBegan:Connect(function(inp, gp)
     if gp then return end
@@ -1854,15 +2182,17 @@ UserInputService.InputBegan:Connect(function(inp, gp)
         if menuOpen then
             Win.Visible = true
             Win.Size    = UDim2.new(0, MW-60, 0, MH-40)
-            TweenService:Create(Win, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+            TweenService:Create(Win,
+                TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
                 { Size = UDim2.new(0,MW,0,MH) }):Play()
         else
-            TweenService:Create(Win, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+            TweenService:Create(Win,
+                TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
                 { Size = UDim2.new(0,MW-60,0,MH-40), BackgroundTransparency=1 }):Play()
             task.wait(0.27)
-            Win.Visible = false
+            Win.Visible            = false
             Win.BackgroundTransparency = 0
-            Win.Size    = UDim2.new(0,MW,0,MH)
+            Win.Size               = UDim2.new(0,MW,0,MH)
         end
     end
 end)
@@ -1872,7 +2202,7 @@ end)
 -- ════════════════════════════════════════════════════════════
 local function buildSplash()
     local splash = Instance.new("Frame")
-    splash.Size             = UDim2.new(1, 0, 1, 0)
+    splash.Size             = UDim2.new(1,0,1,0)
     splash.BackgroundColor3 = C.bg
     splash.BorderSizePixel  = 0
     splash.ZIndex           = 100
@@ -1912,13 +2242,14 @@ local function buildSplash()
     rnd(avatar, 53)
 
     local halo = Instance.new("Frame")
-    halo.Size             = UDim2.new(0,126,0,126)
-    halo.AnchorPoint      = Vector2.new(0.5,0.5)
-    halo.Position         = UDim2.new(0.5,0,0,145)
+    halo.Size                   = UDim2.new(0,126,0,126)
+    halo.AnchorPoint            = Vector2.new(0.5,0.5)
+    halo.Position               = UDim2.new(0.5,0,0,145)
     halo.BackgroundTransparency = 1
-    halo.BorderSizePixel  = 0
-    halo.ZIndex           = 101
-    halo.Parent           = splash
+    halo.BorderSizePixel        = 0
+    halo.ZIndex                 = 101
+    halo.Parent                 = splash
+
     local haloStroke = Instance.new("UIStroke")
     haloStroke.Color        = C.accent
     haloStroke.Thickness    = 2
@@ -1929,32 +2260,34 @@ local function buildSplash()
     task.spawn(function()
         while halo and halo.Parent do
             TweenService:Create(haloStroke, TweenInfo.new(1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-                { Transparency = 0.85 }):Play()
+                { Transparency=0.85 }):Play()
             task.wait(1.1)
             TweenService:Create(haloStroke, TweenInfo.new(1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-                { Transparency = 0.2 }):Play()
+                { Transparency=0.2 }):Play()
             task.wait(1.1)
         end
     end)
 
     lbl(splash, {
-        Size           = UDim2.new(1,-40,0,32),
-        Position       = UDim2.new(0,20,0,218),
-        Font           = Enum.Font.GothamBold,
-        TextSize       = 22,
-        TextColor3     = C.white,
-        Text           = lp.DisplayName,
-        ZIndex         = 102,
+        Size       = UDim2.new(1,-40,0,32),
+        Position   = UDim2.new(0,20,0,218),
+        Font       = Enum.Font.GothamBold,
+        TextSize   = 22,
+        TextColor3 = C.white,
+        Text       = lp.DisplayName,
+        ZIndex     = 102,
     })
 
     lbl(splash, {
-        Size           = UDim2.new(1,-40,0,20),
-        Position       = UDim2.new(0,20,0,255),
-        Font           = Enum.Font.Gotham,
-        TextSize       = 13,
-        TextColor3     = C.muted,
-        Text           = lp.DisplayName ~= lp.Name and ("@" .. lp.Name) or ("UserId · " .. lp.UserId),
-        ZIndex         = 102,
+        Size       = UDim2.new(1,-40,0,20),
+        Position   = UDim2.new(0,20,0,255),
+        Font       = Enum.Font.Gotham,
+        TextSize   = 13,
+        TextColor3 = C.muted,
+        Text       = lp.DisplayName ~= lp.Name
+            and ("@" .. lp.Name)
+            or  ("UserId · " .. lp.UserId),
+        ZIndex     = 102,
     })
 
     local sep = Instance.new("Frame")
@@ -1965,7 +2298,8 @@ local function buildSplash()
     sep.BorderSizePixel  = 0
     sep.ZIndex           = 102
     sep.Parent           = splash
-    TweenService:Create(sep, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+    TweenService:Create(sep,
+        TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
         { Size = UDim2.new(0,200,0,1) }):Play()
 
     lbl(splash, {
@@ -2006,31 +2340,33 @@ local function buildSplash()
     })
 
     local steps = {
-        { pct=0.30, txt="Initialisation des modules..." },
+        { pct=0.30, txt="Initialisation des modules..."  },
         { pct=0.55, txt="Connexion à l'environnement..." },
-        { pct=0.80, txt="Chargement des scripts..."     },
-        { pct=1.00, txt="Prêt."                         },
+        { pct=0.80, txt="Chargement des scripts..."      },
+        { pct=1.00, txt="Prêt."                          },
     }
 
     task.spawn(function()
         for _, step in ipairs(steps) do
-            TweenService:Create(loadFill, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                { Size = UDim2.new(step.pct, 0, 1, 0) }):Play()
+            TweenService:Create(loadFill,
+                TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                { Size = UDim2.new(step.pct,0,1,0) }):Play()
             loadLabel.Text = step.txt
             task.wait(0.5)
         end
         task.wait(0.3)
-        TweenService:Create(splash, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
-            { BackgroundTransparency = 1 }):Play()
+        TweenService:Create(splash,
+            TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+            { BackgroundTransparency=1 }):Play()
         for _, d in ipairs(splash:GetDescendants()) do
             if d:IsA("TextLabel") then
-                TweenService:Create(d, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
+                TweenService:Create(d, TweenInfo.new(0.3), { TextTransparency=1 }):Play()
             end
             if d:IsA("ImageLabel") then
-                TweenService:Create(d, TweenInfo.new(0.3), { ImageTransparency = 1 }):Play()
+                TweenService:Create(d, TweenInfo.new(0.3), { ImageTransparency=1 }):Play()
             end
             if d:IsA("Frame") then
-                TweenService:Create(d, TweenInfo.new(0.3), { BackgroundTransparency = 1 }):Play()
+                TweenService:Create(d, TweenInfo.new(0.3), { BackgroundTransparency=1 }):Play()
             end
         end
         task.wait(0.45)
