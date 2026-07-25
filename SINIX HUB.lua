@@ -11,6 +11,86 @@ local UserInputService = game:GetService("UserInputService")
 local lp   = Players.LocalPlayer
 local pGui = lp:WaitForChild("PlayerGui")
 
+-- ════════════════════════════════════════════════════════════
+--  SAVE SYSTEM
+-- ════════════════════════════════════════════════════════════
+local SAVE_FILE = "sinixhub_config.json"
+
+local SavedConfig = {
+    walkSpeed   = 16,
+    jumpPower   = 50,
+    gravity     = 196,
+    fov         = 70,
+    fullBright  = false,
+    xray        = false,
+    radar       = false,
+    unlockFPS   = false,
+    antiAFK     = false,
+    noclip      = false,
+    fly         = false,
+    infiniJump  = false,
+    freezePos   = false,
+    autoOpen    = false,
+    espSkeleton = false,
+    espNames    = false,
+    espHPBar    = false,
+    espColor    = 1,
+    showFooter  = true,
+    themeIndex  = 1,
+}
+
+local function serializeConfig()
+    local parts = {}
+    for k, v in pairs(SavedConfig) do
+        local val
+        if type(v) == "boolean" then
+            val = v and "true" or "false"
+        else
+            val = tostring(v)
+        end
+        table.insert(parts, string.format('"%s":%s', k, val))
+    end
+    return "{" .. table.concat(parts, ",") .. "}"
+end
+
+local function parseJSON(str)
+    local result = {}
+    for key, val in str:gmatch('"([^"]+)":([^,}]+)') do
+        if val == "true" then
+            result[key] = true
+        elseif val == "false" then
+            result[key] = false
+        else
+            result[key] = tonumber(val) or val
+        end
+    end
+    return result
+end
+
+local function saveConfig()
+    local ok = pcall(writefile, SAVE_FILE, serializeConfig())
+    return ok
+end
+
+local function loadConfig()
+    local ok, data = pcall(readfile, SAVE_FILE)
+    if not ok or not data or data == "" then return end
+    local parsed = parseJSON(data)
+    for k, v in pairs(parsed) do
+        if SavedConfig[k] ~= nil then
+            SavedConfig[k] = v
+        end
+    end
+end
+
+-- Charge la config au démarrage
+loadConfig()
+
+local function cfg(key, value)
+    SavedConfig[key] = value
+    saveConfig()
+end
+
 -- ── PALETTE ─────────────────────────────────────────────────
 local C = {
     bg       = Color3.fromRGB(18, 18, 18),
@@ -308,7 +388,7 @@ moveBtn.ZIndex           = 14
 moveBtn.Parent           = TopBar
 rnd(moveBtn, 6)
 moveBtn.MouseButton1Click:Connect(function()
-    Win.Draggable  = not Win.Draggable
+    Win.Draggable = not Win.Draggable
     moveBtn.TextColor3 = Win.Draggable and C.muted or C.accent
 end)
 
@@ -347,6 +427,7 @@ local footer = lbl(Win, {
     Text           = "No Footer",
     ZIndex         = 12,
 })
+footer.Visible = SavedConfig.showFooter
 
 -- ════════════════════════════════════════════════════════════
 --  COMPOSANTS UI
@@ -367,12 +448,12 @@ local function makeCard(titleTxt, order, parent)
     bdr(wrap, C.border, 1)
 
     local inner = Instance.new("Frame")
-    inner.Size             = UDim2.new(1,-16,0,0)
-    inner.Position         = UDim2.new(0,8,0,36)
-    inner.AutomaticSize    = Enum.AutomaticSize.Y
+    inner.Size                   = UDim2.new(1,-16,0,0)
+    inner.Position               = UDim2.new(0,8,0,36)
+    inner.AutomaticSize          = Enum.AutomaticSize.Y
     inner.BackgroundTransparency = 1
-    inner.ZIndex           = 13
-    inner.Parent           = wrap
+    inner.ZIndex                 = 13
+    inner.Parent                 = wrap
 
     local innerL = Instance.new("UIListLayout")
     innerL.Padding   = UDim.new(0,8)
@@ -397,8 +478,9 @@ local function makeCard(titleTxt, order, parent)
     return wrap, inner
 end
 
-local function mkToggle(parent, labelTxt, order, default, cb)
-    local state = default or false
+-- mkToggle avec saveKey optionnel
+local function mkToggle(parent, labelTxt, order, default, cb, saveKey)
+    local state = (saveKey and SavedConfig[saveKey] ~= nil) and SavedConfig[saveKey] or (default or false)
 
     local row = Instance.new("Frame")
     row.Size                   = UDim2.new(1,0,0,32)
@@ -450,14 +532,21 @@ local function mkToggle(parent, labelTxt, order, default, cb)
         TweenService:Create(knob,
             TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
             { Position = state and UDim2.new(0,25,0.5,-8) or UDim2.new(0,3,0.5,-8) }):Play()
+        if saveKey then cfg(saveKey, state) end
         if cb then cb(state) end
     end)
+
+    -- Auto-fire si la valeur sauvegardée est true
+    if state and cb then
+        task.defer(function() cb(state) end)
+    end
 
     return row
 end
 
-local function mkSlider(parent, labelTxt, minV, maxV, defV, order, cb)
-    local cur = defV
+-- mkSlider avec saveKey optionnel
+local function mkSlider(parent, labelTxt, minV, maxV, defV, order, cb, saveKey)
+    local cur = (saveKey and SavedConfig[saveKey]) or defV
 
     local wrap = Instance.new("Frame")
     wrap.Size                   = UDim2.new(1,0,0,56)
@@ -516,6 +605,7 @@ local function mkSlider(parent, labelTxt, minV, maxV, defV, order, cb)
         cur       = math.floor(minV + r*(maxV-minV))
         fill.Size = UDim2.new(r,0,1,0)
         valL.Text = cur .. "/" .. maxV
+        if saveKey then cfg(saveKey, cur) end
         if cb then cb(cur) end
     end
 
@@ -533,6 +623,11 @@ local function mkSlider(parent, labelTxt, minV, maxV, defV, order, cb)
             dragging = false
         end
     end)
+
+    -- Applique la valeur sauvegardée au démarrage
+    if saveKey and cb then
+        task.defer(function() cb(cur) end)
+    end
 
     return wrap
 end
@@ -660,7 +755,7 @@ local function makeGrid(order)
 end
 
 -- ════════════════════════════════════════════════════════════
---  FEATURES : UNLOCK FPS
+--  FEATURES
 -- ════════════════════════════════════════════════════════════
 local function unlockFPS()
     local ok = pcall(setfpscap, 0)
@@ -669,9 +764,6 @@ local function unlockFPS()
     end
 end
 
--- ════════════════════════════════════════════════════════════
---  FEATURES : ANTI-AFK
--- ════════════════════════════════════════════════════════════
 local _afkBound = false
 local function startAntiAFK()
     if _afkBound then return end
@@ -684,14 +776,8 @@ local function startAntiAFK()
     end)
 end
 
--- ════════════════════════════════════════════════════════════
---  FEATURES : FULL BRIGHT
--- ════════════════════════════════════════════════════════════
 local _fbOriginals = {}
-local _fbActive    = false
-
 local function setFullBright(on)
-    _fbActive = on
     local lighting = game:GetService("Lighting")
     if on then
         _fbOriginals = {
@@ -723,12 +809,8 @@ local function setFullBright(on)
     end
 end
 
--- ════════════════════════════════════════════════════════════
---  FEATURES : X-RAY
--- ════════════════════════════════════════════════════════════
 local _xrayTargets  = {}
 local _xrayKeywords = { "wall","floor","brick","part","union","terrain" }
-
 local function setXRay(on)
     if on then
         for _, v in ipairs(workspace:GetDescendants()) do
@@ -754,20 +836,14 @@ local function setXRay(on)
     end
 end
 
--- ════════════════════════════════════════════════════════════
---  FEATURES : RADAR
--- ════════════════════════════════════════════════════════════
-local _radarActive = false
 local _radarFrame
 local _radarConn
-
 local RADAR_SIZE  = 180
 local RADAR_RANGE = 300
 local RADAR_DOT   = 6
 
 local function buildRadarUI()
     if _radarFrame and _radarFrame.Parent then _radarFrame:Destroy() end
-
     local frame = Instance.new("Frame")
     frame.Name                   = "_sinixRadar"
     frame.Size                   = UDim2.new(0,RADAR_SIZE,0,RADAR_SIZE)
@@ -821,26 +897,19 @@ end
 local function startRadar()
     local frame = buildRadarUI()
     local dots  = {}
-
     _radarConn = RunService.Heartbeat:Connect(function()
         local myChar = lp.Character
         local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
         if not myRoot then return end
-
         local cam = workspace.CurrentCamera
         local yaw = math.atan2(-cam.CFrame.LookVector.X, -cam.CFrame.LookVector.Z)
-
         for name, dot in pairs(dots) do
-            if not Players:FindFirstChild(name) then
-                dot:Destroy() ; dots[name] = nil
-            end
+            if not Players:FindFirstChild(name) then dot:Destroy() ; dots[name] = nil end
         end
-
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= lp then
                 local tChar = p.Character
                 local tRoot = tChar and tChar:FindFirstChild("HumanoidRootPart")
-
                 if tRoot then
                     local delta = tRoot.Position - myRoot.Position
                     local dist  = Vector2.new(delta.X, delta.Z).Magnitude
@@ -848,7 +917,6 @@ local function startRadar()
                     local norm  = math.min(dist / RADAR_RANGE, 1)
                     local rx    = 0.5 + math.sin(angle) * norm * 0.46
                     local ry    = 0.5 - math.cos(angle) * norm * 0.46
-
                     if not dots[p.Name] then
                         local dot = Instance.new("Frame")
                         dot.Size             = UDim2.new(0,RADAR_DOT,0,RADAR_DOT)
@@ -858,7 +926,6 @@ local function startRadar()
                         dot.ZIndex           = 52
                         dot.Parent           = frame
                         rnd(dot, RADAR_DOT/2)
-
                         local tip = Instance.new("TextLabel")
                         tip.Size                   = UDim2.new(0,80,0,16)
                         tip.Position               = UDim2.new(0,8,0,0)
@@ -873,26 +940,19 @@ local function startRadar()
                         tip.ZIndex                 = 54
                         tip.Parent                 = dot
                         rnd(tip, 3)
-
                         dot.MouseEnter:Connect(function() tip.Visible = true  end)
                         dot.MouseLeave:Connect(function() tip.Visible = false end)
                         dots[p.Name] = dot
                     end
-
                     local dot = dots[p.Name]
                     dot.Position = UDim2.new(rx,0,ry,0)
-
                     local hum = tChar:FindFirstChildOfClass("Humanoid")
                     local hp  = hum and hum.Health or 100
-                    dot.BackgroundColor3 = hp > 60
-                        and C.accent
-                        or  hp > 25
-                        and Color3.fromRGB(220,180,40)
-                        or  Color3.fromRGB(210,60,60)
+                    dot.BackgroundColor3 = hp > 60 and C.accent
+                        or hp > 25 and Color3.fromRGB(220,180,40)
+                        or Color3.fromRGB(210,60,60)
                 else
-                    if dots[p.Name] then
-                        dots[p.Name]:Destroy() ; dots[p.Name] = nil
-                    end
+                    if dots[p.Name] then dots[p.Name]:Destroy() ; dots[p.Name] = nil end
                 end
             end
         end
@@ -906,24 +966,11 @@ local function stopRadar()
 end
 
 -- ════════════════════════════════════════════════════════════
---  ÉTAT GLOBAL : MAIN TAB
+--  ÉTAT GLOBAL
 -- ════════════════════════════════════════════════════════════
 local _noclipConn
 local _flyConn, _bv, _bg
 local _speedConn, _jumpConn
-
-local _autoFishOn    = false
-local _autoEquipOn   = false
-local _autoSellOn    = false
-local _autoOpenOn    = false
-local _autoReplayOn  = false
-local _instantReelOn = false
-local _sellInterval  = 30
-local _catchChance   = 100
-local _reelSnap      = 0
-
-local _autoFishThread
-local _autoSellThread
 
 -- ════════════════════════════════════════════════════════════
 --  CONTENU : MAIN
@@ -931,113 +978,7 @@ local _autoSellThread
 local function buildMain()
     local grid = makeGrid(1)
 
-    local _, afInner = makeCard("Auto Fish", 1, grid)
-
-    mkToggle(afInner, "Auto Equip Rod", 1, _autoEquipOn, function(s)
-        _autoEquipOn = s
-        if s then
-            local bp = lp:FindFirstChildOfClass("Backpack")
-            if bp then
-                for _, t in ipairs(bp:GetChildren()) do
-                    if t:IsA("Tool") and t.Name:lower():find("rod") then
-                        lp.Character.Humanoid:EquipTool(t)
-                        toast("🎣 Rod équipé : " .. t.Name, C.success)
-                        return
-                    end
-                end
-            end
-            toast("⚠ Aucun rod trouvé dans le backpack", C.err)
-        else
-            local char = lp.Character
-            local hum  = char and char:FindFirstChildOfClass("Humanoid")
-            if hum then hum:UnequipTools() end
-            toast("Auto Equip Rod OFF", C.muted)
-        end
-    end)
-
-    mkToggle(afInner, "Auto Fish", 2, _autoFishOn, function(s)
-        _autoFishOn = s
-        if s then
-            if _autoFishThread then task.cancel(_autoFishThread) end
-            _autoFishThread = task.spawn(function()
-                while _autoFishOn do
-                    fireRemote("CastLine")
-                    task.wait(0.5)
-                    fireRemote("ReelIn")
-                    task.wait(1.2)
-                end
-            end)
-            toast("✓ Auto Fish ON", C.success)
-        else
-            if _autoFishThread then task.cancel(_autoFishThread) ; _autoFishThread = nil end
-            toast("Auto Fish OFF", C.muted)
-        end
-    end)
-
-    local _, asInner = makeCard("Auto Sell", 2, grid)
-
-    mkButton(asInner, "Sell All", 1, function()
-        fireRemote("SellAll")
-        fireRemote("Sell")
-        toast("💰 Sell All envoyé", C.accent)
-    end)
-
-    mkSlider(asInner, "Sell Timer (s)", 5, 600, _sellInterval, 2, function(v)
-        _sellInterval = v
-    end)
-
-    mkToggle(asInner, "Auto Sell", 3, _autoSellOn, function(s)
-        _autoSellOn = s
-        if s then
-            if _autoSellThread then task.cancel(_autoSellThread) end
-            _autoSellThread = task.spawn(function()
-                while _autoSellOn do
-                    fireRemote("SellAll")
-                    fireRemote("Sell")
-                    toast("💰 Auto Sell — vendu", C.success)
-                    task.wait(_sellInterval)
-                end
-            end)
-            toast("✓ Auto Sell ON — toutes les " .. _sellInterval .. "s", C.success)
-        else
-            if _autoSellThread then task.cancel(_autoSellThread) ; _autoSellThread = nil end
-            toast("Auto Sell OFF", C.muted)
-        end
-    end)
-
-    local _, blInner = makeCard("Blatant (Risky)", 3, grid)
-
-    mkSlider(blInner, "Perfect Catch Chance", 0, 100, _catchChance, 1, function(v)
-        _catchChance = v
-        local rs  = game:GetService("ReplicatedStorage")
-        local cfg = rs:FindFirstChild("FishingConfig", true)
-        if cfg and cfg:IsA("ModuleScript") then
-            local ok, t = pcall(require, cfg)
-            if ok and type(t)=="table" and t.CatchChance~=nil then
-                t.CatchChance = v/100
-            end
-        end
-    end)
-
-    mkSlider(blInner, "Reel Snap Chance", 0, 100, _reelSnap, 2, function(v)
-        _reelSnap = v
-        local rs  = game:GetService("ReplicatedStorage")
-        local cfg = rs:FindFirstChild("FishingConfig", true)
-        if cfg and cfg:IsA("ModuleScript") then
-            local ok, t = pcall(require, cfg)
-            if ok and type(t)=="table" and t.SnapChance~=nil then
-                t.SnapChance = v/100
-            end
-        end
-    end)
-
-    mkToggle(blInner, "Instant Reel", 3, _instantReelOn, function(s)
-        _instantReelOn = s
-        toast(s and "✓ Instant Reel ON" or "Instant Reel OFF",
-              s and C.success or C.muted)
-    end)
-
-    local _, miscInner = makeCard("Misc", 4, grid)
+    local _, miscInner = makeCard("Misc", 1, grid)
 
     mkToggle(miscInner, "Freeze Position", 1, false, function(s)
         local char = lp.Character
@@ -1056,13 +997,12 @@ local function buildMain()
         end
         toast(s and "❄ Position gelée" or "❄ Position libérée",
               s and C.accent or C.muted)
-    end)
+    end, "freezePos")
 
-    mkToggle(miscInner, "Auto Open", 2, _autoOpenOn, function(s)
-        _autoOpenOn = s
+    mkToggle(miscInner, "Auto Open", 2, false, function(s)
         if s then
             task.spawn(function()
-                while _autoOpenOn do
+                while s do
                     fireRemote("OpenChest")
                     fireRemote("OpenCrate")
                     fireRemote("Open")
@@ -1073,23 +1013,7 @@ local function buildMain()
         else
             toast("Auto Open OFF", C.muted)
         end
-    end)
-
-    mkToggle(miscInner, "Auto Replay Grab Casts", 3, _autoReplayOn, function(s)
-        _autoReplayOn = s
-        if s then
-            task.spawn(function()
-                while _autoReplayOn do
-                    fireRemote("GrabCast")
-                    fireRemote("ReplayCast")
-                    task.wait(0.6)
-                end
-            end)
-            toast("✓ Auto Replay ON", C.success)
-        else
-            toast("Auto Replay OFF", C.muted)
-        end
-    end)
+    end, "autoOpen")
 end
 
 -- ════════════════════════════════════════════════════════════
@@ -1247,7 +1171,7 @@ local function buildMisc()
             local h2 = c:WaitForChild("Humanoid", 5)
             if h2 then h2.WalkSpeed = v end
         end)
-    end)
+    end, "walkSpeed")
 
     mkSlider(movInner, "JumpPower", 10, 500, 50, 2, function(v)
         local h = lp.Character and lp.Character:FindFirstChild("Humanoid")
@@ -1257,15 +1181,15 @@ local function buildMisc()
             local h2 = c:WaitForChild("Humanoid", 5)
             if h2 then h2.JumpPower = v end
         end)
-    end)
+    end, "jumpPower")
 
     mkSlider(movInner, "Gravité", 10, 400, 196, 3, function(v)
         workspace.Gravity = v
-    end)
+    end, "gravity")
 
     local _, abInner = makeCard("Capacités", 2)
 
-    local infiActive = false
+    local infiActive = SavedConfig.infiniJump
     local infiConn
 
     local ijFrame = Instance.new("Frame")
@@ -1277,18 +1201,25 @@ local function buildMisc()
 
     local ijBtn = Instance.new("TextButton")
     ijBtn.Size             = UDim2.new(1,0,1,0)
-    ijBtn.BackgroundColor3 = C.input
+    ijBtn.BackgroundColor3 = infiActive and C.accent or C.input
     ijBtn.BorderSizePixel  = 0
     ijBtn.Font             = Enum.Font.GothamBold
     ijBtn.TextSize         = 13
     ijBtn.TextColor3       = C.text
-    ijBtn.Text             = "InfiniJump  ·  OFF"
+    ijBtn.Text             = infiActive and "InfiniJump  ·  ON" or "InfiniJump  ·  OFF"
     ijBtn.AutoButtonColor  = false
     ijBtn.ClipsDescendants = true
     ijBtn.ZIndex           = 15
     ijBtn.Parent           = ijFrame
     rnd(ijBtn, 6)
     ripple(ijBtn)
+
+    if infiActive then
+        infiConn = UserInputService.JumpRequest:Connect(function()
+            local h = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
+            if h then h:ChangeState(Enum.HumanoidStateType.Jumping) end
+        end)
+    end
 
     ijBtn.MouseEnter:Connect(function()
         if not infiActive then
@@ -1302,6 +1233,7 @@ local function buildMisc()
     end)
     ijBtn.MouseButton1Click:Connect(function()
         infiActive = not infiActive
+        cfg("infiniJump", infiActive)
         if infiActive then
             ijBtn.Text             = "InfiniJump  ·  ON"
             ijBtn.BackgroundColor3 = C.accent
@@ -1337,7 +1269,7 @@ local function buildMisc()
             end
         end
         toast(s and "👻 Noclip ON" or "👻 Noclip OFF", s and C.accent or C.muted)
-    end)
+    end, "noclip")
 
     mkToggle(abInner, "Fly  (ZQSD + Espace)", 3, false, function(s)
         local c    = lp.Character
@@ -1372,7 +1304,7 @@ local function buildMisc()
             if _bg and _bg.Parent then _bg:Destroy() end
         end
         toast(s and "🚀 Fly ON" or "🚀 Fly OFF", s and C.success or C.muted)
-    end)
+    end, "fly")
 end
 
 -- ════════════════════════════════════════════════════════════
@@ -1498,8 +1430,8 @@ local function drawName(player)
     end))
 end
 
-local _skeletonOn = false
-local _nameOn     = false
+local _skeletonOn = SavedConfig.espSkeleton
+local _nameOn     = SavedConfig.espNames
 
 local function refreshESP()
     if _skeletonOn then
@@ -1519,7 +1451,8 @@ local ESP_PALETTES = {
     { name="Cyan",   col=Color3.fromRGB(60,200,220)  },
     { name="Blanc",  col=Color3.fromRGB(230,230,230) },
 }
-local _espPaletteIdx = 1
+local _espPaletteIdx = SavedConfig.espColor or 1
+ESP_COLOR = ESP_PALETTES[_espPaletteIdx] and ESP_PALETTES[_espPaletteIdx].col or ESP_COLOR
 
 local _distLoop
 local function startDistLoop()
@@ -1588,6 +1521,7 @@ local function buildESP()
         dot.MouseButton1Click:Connect(function()
             _espPaletteIdx = i
             ESP_COLOR = pal.col
+            cfg("espColor", i)
             for _, box in pairs(_espBoxes) do
                 if box and box.Parent then
                     box.Color3 = ESP_COLOR ; box.SurfaceColor3 = ESP_COLOR
@@ -1647,6 +1581,7 @@ local function buildESP()
 
     skelHit.MouseButton1Click:Connect(function()
         _skeletonOn = not _skeletonOn
+        cfg("espSkeleton", _skeletonOn)
         TweenService:Create(skelTrack, TweenInfo.new(0.15),
             { BackgroundColor3 = _skeletonOn and C.accent or C.input }):Play()
         TweenService:Create(skelKnob,
@@ -1654,11 +1589,6 @@ local function buildESP()
             { Position = _skeletonOn and UDim2.new(0,25,0.5,-8) or UDim2.new(0,3,0.5,-8) }):Play()
         if _skeletonOn then
             for _, p in ipairs(Players:GetPlayers()) do drawSkeleton(p) end
-            Players.PlayerAdded:Connect(function(p)
-                if _skeletonOn then
-                    p.CharacterAdded:Connect(function() task.wait(1) drawSkeleton(p) end)
-                end
-            end)
             toast("💀 Squelette ESP ON", C.success)
         else
             espClearSkeleton()
@@ -1734,6 +1664,7 @@ local function buildESP()
 
     nameHit.MouseButton1Click:Connect(function()
         _nameOn = not _nameOn
+        cfg("espNames", _nameOn)
         TweenService:Create(nameTrack, TweenInfo.new(0.15),
             { BackgroundColor3 = _nameOn and C.accent or C.input }):Play()
         TweenService:Create(nameKnob,
@@ -1741,11 +1672,6 @@ local function buildESP()
             { Position = _nameOn and UDim2.new(0,25,0.5,-8) or UDim2.new(0,3,0.5,-8) }):Play()
         if _nameOn then
             for _, p in ipairs(Players:GetPlayers()) do drawName(p) end
-            Players.PlayerAdded:Connect(function(p)
-                if _nameOn then
-                    p.CharacterAdded:Connect(function() task.wait(1) drawName(p) end)
-                end
-            end)
             startDistLoop()
             toast("🏷 Pseudo ESP ON", C.success)
         else
@@ -1783,7 +1709,7 @@ local function buildESP()
             task.spawn(function()
                 while s do
                     for _, p in ipairs(Players:GetPlayers()) do
-                        local bg   = _espNames[p.Name]
+                        local bg = _espNames[p.Name]
                         if bg then
                             local track = bg:FindFirstChild("_hpBar")
                             local fill  = track and track:FindFirstChild("_hpFill")
@@ -1805,7 +1731,16 @@ local function buildESP()
         end
         toast(s and "❤ Barre de vie ON" or "❤ Barre de vie OFF",
               s and C.success or C.muted)
-    end)
+    end, "espHPBar")
+
+    -- Restaure les états sauvegardés au chargement
+    if _skeletonOn then
+        for _, p in ipairs(Players:GetPlayers()) do drawSkeleton(p) end
+    end
+    if _nameOn then
+        for _, p in ipairs(Players:GetPlayers()) do drawName(p) end
+        startDistLoop()
+    end
 end
 
 -- ════════════════════════════════════════════════════════════
@@ -1818,19 +1753,19 @@ local function buildVisual()
         setFullBright(s)
         toast(s and "☀ Full Bright ON" or "☀ Full Bright OFF",
               s and C.success or C.muted)
-    end)
+    end, "fullBright")
 
     mkToggle(featInner, "X-Ray (murs)", 2, false, function(s)
         setXRay(s)
         toast(s and "👁 X-Ray ON" or "👁 X-Ray OFF",
               s and C.success or C.muted)
-    end)
+    end, "xray")
 
     mkToggle(featInner, "Radar", 3, false, function(s)
         if s then startRadar() else stopRadar() end
         toast(s and "📡 Radar ON" or "📡 Radar OFF",
               s and C.success or C.muted)
-    end)
+    end, "radar")
 
     local _, sysInner = makeCard("Système", 2)
 
@@ -1842,7 +1777,7 @@ local function buildVisual()
             pcall(setfpscap, 60)
             toast("⚡ FPS → 60", C.muted)
         end
-    end)
+    end, "unlockFPS")
 
     mkToggle(sysInner, "Anti-AFK", 2, false, function(s)
         if s then
@@ -1851,7 +1786,7 @@ local function buildVisual()
         else
             toast("Anti-AFK OFF", C.muted)
         end
-    end)
+    end, "antiAFK")
 end
 
 -- ════════════════════════════════════════════════════════════
@@ -1950,17 +1885,17 @@ local function applyTheme(theme)
             local r,g,b = math.floor(v.BackgroundColor3.R*255),
                           math.floor(v.BackgroundColor3.G*255),
                           math.floor(v.BackgroundColor3.B*255)
-            if r==30 and g==30 and b==30        then v.BackgroundColor3 = C.card
-            elseif r==24 and g==24 and b==24    then v.BackgroundColor3 = C.sidebar
-            elseif r==18 and g==18 and b==18    then v.BackgroundColor3 = C.bg
-            elseif r==120 and g==80 and b==220  then v.BackgroundColor3 = C.accent end
+            if r==30 and g==30 and b==30       then v.BackgroundColor3 = C.card
+            elseif r==24 and g==24 and b==24   then v.BackgroundColor3 = C.sidebar
+            elseif r==18 and g==18 and b==18   then v.BackgroundColor3 = C.bg
+            elseif r==120 and g==80 and b==220 then v.BackgroundColor3 = C.accent end
         end
         if v:IsA("TextLabel") then
             local r,g,b = math.floor(v.TextColor3.R*255),
                           math.floor(v.TextColor3.G*255),
                           math.floor(v.TextColor3.B*255)
-            if r==230 and g==230 and b==230     then v.TextColor3 = C.text
-            elseif r==120 and g==80 and b==220  then v.TextColor3 = C.accent end
+            if r==230 and g==230 and b==230    then v.TextColor3 = C.text
+            elseif r==120 and g==80 and b==220 then v.TextColor3 = C.accent end
         end
         if v:IsA("TextButton") then
             local r,g,b = math.floor(v.BackgroundColor3.R*255),
@@ -1988,22 +1923,62 @@ local function applyTheme(theme)
     end
 end
 
+-- Applique le thème sauvegardé au démarrage
+if SavedConfig.themeIndex and THEMES[SavedConfig.themeIndex] then
+    task.defer(function() applyTheme(THEMES[SavedConfig.themeIndex]) end)
+end
+
 -- ════════════════════════════════════════════════════════════
 --  CONTENU : SETTINGS
 -- ════════════════════════════════════════════════════════════
 local function buildSettings()
     local _, uiInner = makeCard("Interface", 1)
+
     mkSlider(uiInner, "FOV", 50, 120, 70, 1, function(v)
         workspace.CurrentCamera.FieldOfView = v
-    end)
+    end, "fov")
+
     mkToggle(uiInner, "Afficher le footer", 2, true, function(s)
         footer.Visible = s
-    end)
+    end, "showFooter")
+
     mkButton(uiInner, "Fermer l'interface", 3, function()
         Root:Destroy()
     end)
 
-    local _, infoInner = makeCard("Session", 2)
+    local _, saveInner = makeCard("Sauvegarde", 2)
+
+    local statusLbl = lbl(saveInner, {
+        Size           = UDim2.new(1,0,0,20),
+        Font           = Enum.Font.Gotham,
+        TextSize       = 12,
+        TextColor3     = C.muted,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Text           = "📂 Fichier : " .. SAVE_FILE,
+        LayoutOrder    = 1,
+        ZIndex         = 15,
+    })
+
+    mkButton(saveInner, "💾 Sauvegarder maintenant", 2, function()
+        local ok = saveConfig()
+        toast(ok and "✓ Config sauvegardée" or "❌ Échec de la sauvegarde",
+              ok and C.success or C.err)
+    end)
+
+    mkButton(saveInner, "🗑 Réinitialiser la config", 3, function()
+        pcall(delfile, SAVE_FILE)
+        SavedConfig = {
+            walkSpeed=16, jumpPower=50, gravity=196, fov=70,
+            fullBright=false, xray=false, radar=false,
+            unlockFPS=false, antiAFK=false, noclip=false,
+            fly=false, infiniJump=false, freezePos=false,
+            autoOpen=false, espSkeleton=false, espNames=false,
+            espHPBar=false, espColor=1, showFooter=true, themeIndex=1,
+        }
+        toast("🗑 Config réinitialisée — relance le hub", C.err)
+    end)
+
+    local _, infoInner = makeCard("Session", 3)
     local rows = {
         "Joueur : "  .. lp.Name,
         "UserId : "  .. lp.UserId,
@@ -2023,7 +1998,7 @@ local function buildSettings()
         })
     end
 
-    local _, themeInner = makeCard("Thèmes", 3)
+    local _, themeInner = makeCard("Thèmes", 4)
 
     local searchTheme = Instance.new("TextBox")
     searchTheme.Size              = UDim2.new(1,0,0,28)
@@ -2074,7 +2049,7 @@ local function buildSettings()
 
         local lf  = filter:lower()
         local idx = 0
-        for _, theme in ipairs(THEMES) do
+        for ti, theme in ipairs(THEMES) do
             if lf=="" or theme.name:lower():find(lf, 1, true) then
                 idx = idx + 1
                 local btn = Instance.new("TextButton")
@@ -2147,6 +2122,7 @@ local function buildSettings()
                     activeThemeStroke       = stroke
                     stroke.Color            = theme.accent
                     stroke.Thickness        = 2
+                    cfg("themeIndex", ti)
                     applyTheme(theme)
                     toast("🎨 Thème : " .. theme.name, theme.accent)
                 end)
@@ -2163,7 +2139,7 @@ local function buildSettings()
 end
 
 -- ════════════════════════════════════════════════════════════
---  SIDEBAR TABS  (ordre final)
+--  SIDEBAR TABS
 -- ════════════════════════════════════════════════════════════
 local tMain,      activateMain      = mkSidebarTab("Main",      1, buildMain)
 local tTeleports, activateTeleports = mkSidebarTab("Teleports", 2, buildTeleports)
@@ -2190,9 +2166,9 @@ UserInputService.InputBegan:Connect(function(inp, gp)
                 TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
                 { Size = UDim2.new(0,MW-60,0,MH-40), BackgroundTransparency=1 }):Play()
             task.wait(0.27)
-            Win.Visible            = false
+            Win.Visible                = false
             Win.BackgroundTransparency = 0
-            Win.Size               = UDim2.new(0,MW,0,MH)
+            Win.Size                   = UDim2.new(0,MW,0,MH)
         end
     end
 end)
@@ -2340,7 +2316,7 @@ local function buildSplash()
     })
 
     local steps = {
-        { pct=0.30, txt="Initialisation des modules..."  },
+        { pct=0.25, txt="Lecture de la config..."        },
         { pct=0.55, txt="Connexion à l'environnement..." },
         { pct=0.80, txt="Chargement des scripts..."      },
         { pct=1.00, txt="Prêt."                          },
