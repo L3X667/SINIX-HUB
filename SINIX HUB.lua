@@ -32,6 +32,7 @@ local SavedConfig = {
     radar       = false,
     unlockFPS   = false,
     antiAFK     = false,
+    antiBan     = false,
     noclip      = false,
     fly         = false,
     infiniJump  = false,
@@ -127,6 +128,10 @@ local function bdr(p, col, t)
     return s
 end
 
+-- FIX [4] : LayoutOrder retiré de la signature de lbl() — il doit être
+-- passé explicitement dans props par l'appelant quand c'est nécessaire.
+-- L'ancienne version assignait LayoutOrder=0 par défaut sur tous les labels,
+-- ce qui écrasait le tri UIListLayout dans les cartes qui en avaient besoin.
 local function lbl(p, props)
     local l = Instance.new("TextLabel")
     l.BackgroundTransparency = 1
@@ -214,11 +219,19 @@ end
 -- ════════════════════════════════════════════════════════════
 --  ROOT GUI
 -- ════════════════════════════════════════════════════════════
+-- Ensure no leftover GUI from previous runs/accounts
+local existingRoot = pGui:FindFirstChild("SinixHubUI")
+if existingRoot then
+    pcall(function() existingRoot:Destroy() end)
+end
+
 Root = Instance.new("ScreenGui")
 Root.Name           = "SinixHubUI"
 Root.ResetOnSpawn   = false
 Root.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Root.Parent         = pGui
+
+print("SinixHub: running for player =", lp and lp.Name)
 
 local MW, MH = 860, 520
 local SB_W   = 180
@@ -291,7 +304,7 @@ discordBtn.BorderSizePixel  = 0
 discordBtn.Font             = Enum.Font.GothamBold
 discordBtn.TextSize         = 13
 discordBtn.TextColor3       = Color3.fromRGB(255,255,255)
-discordBtn.Text             = "     Discord"
+discordBtn.Text             = ""
 discordBtn.AutoButtonColor  = false
 discordBtn.ZIndex           = 14
 discordBtn.Parent           = Sidebar
@@ -299,11 +312,97 @@ rnd(discordBtn, 8)
 
 local dcIcon = Instance.new("ImageLabel")
 dcIcon.Size                   = UDim2.new(0,22,0,22)
-dcIcon.Position               = UDim2.new(0,10,0.5,-11)
+dcIcon.Position               = UDim2.new(0,8,0.5,0)
+dcIcon.AnchorPoint           = Vector2.new(0,0.5)
 dcIcon.BackgroundTransparency = 1
-dcIcon.Image                  = "rbxassetid://3769040814"
-dcIcon.ZIndex                 = 15
+dcIcon.ScaleType              = Enum.ScaleType.Fit
+dcIcon.ImageTransparency      = 0
+dcIcon.Image                  = "rbxassetid://6031074004"
+dcIcon.ZIndex                 = 16
+dcIcon.Visible                = true
 dcIcon.Parent                 = discordBtn
+-- Preload icon (best-effort)
+pcall(function()
+    local ContentProvider = game:GetService("ContentProvider")
+    ContentProvider:PreloadAsync({dcIcon})
+end)
+
+local dcFallback = Instance.new("Frame")
+dcFallback.Size               = UDim2.new(0,18,0,18)
+dcFallback.Position           = UDim2.new(0,9,0.5,0)
+dcFallback.AnchorPoint       = Vector2.new(0,0.5)
+dcFallback.BackgroundColor3  = Color3.fromRGB(54,57,63)
+dcFallback.BorderSizePixel   = 0
+dcFallback.ZIndex            = 15
+dcFallback.Parent            = discordBtn
+local dcFallbackCorner = Instance.new("UICorner")
+dcFallbackCorner.CornerRadius = UDim.new(1,0)
+dcFallbackCorner.Parent       = dcFallback
+
+dcFallback.Visible = true
+
+-- Ensure fallback is hidden if image appears (best-effort)
+task.spawn(function()
+    task.wait(0.2)
+    if dcIcon and dcIcon.Parent and dcIcon.Image ~= "" then
+        dcFallback.Visible = false
+    end
+end)
+
+-- Show the real icon and center text vertically next to it
+dcIcon.Visible = true
+dcFallback.Visible = false
+dcFallback.BackgroundColor3 = Color3.fromRGB(88,101,242)
+-- small 'D' fallback kept but hidden
+local dcLetter = Instance.new("TextLabel")
+dcLetter.Size = UDim2.new(1,1,1,1)
+dcLetter.AnchorPoint = Vector2.new(0,0)
+dcLetter.Position = UDim2.new(0,0,0,0)
+dcLetter.BackgroundTransparency = 1
+dcLetter.Font = Enum.Font.GothamBold
+dcLetter.TextSize = 14
+dcLetter.TextColor3 = Color3.fromRGB(255,255,255)
+dcLetter.Text = "D"
+dcLetter.TextScaled = true
+dcLetter.ZIndex = 17
+dcLetter.Parent = dcFallback
+dcFallback.Visible = false
+local dcText = Instance.new("TextLabel")
+dcText.Size                   = UDim2.new(1,-36,1,0)
+dcText.AnchorPoint            = Vector2.new(0,0.5)
+dcText.Position               = UDim2.new(0,36,0.5,0)
+dcText.BackgroundTransparency = 1
+dcText.Font                   = Enum.Font.GothamBold
+dcText.TextSize               = 13
+dcText.TextColor3             = Color3.fromRGB(255,255,255)
+dcText.Text                   = "Discord"
+dcText.TextXAlignment         = Enum.TextXAlignment.Left
+dcText.ZIndex                 = 16
+dcText.Parent                 = discordBtn
+-- Ensure fallback is hidden if image appears (best-effort)
+task.spawn(function()
+    task.wait(0.2)
+    if dcIcon and dcIcon.Parent and dcIcon.Image ~= "" then
+        dcFallback.Visible = false
+    end
+end)
+
+-- Force a visible fallback icon (circle with 'D') when image fails or is blocked
+dcIcon.Visible = false
+dcFallback.BackgroundColor3 = Color3.fromRGB(88,101,242)
+local dcLetter = Instance.new("TextLabel")
+dcLetter.Size = UDim2.new(1,1,1,1)
+dcLetter.AnchorPoint = Vector2.new(0,0)
+dcLetter.Position = UDim2.new(0,0,0,0)
+dcLetter.BackgroundTransparency = 1
+dcLetter.Font = Enum.Font.GothamBold
+dcLetter.TextSize = 14
+dcLetter.TextColor3 = Color3.fromRGB(255,255,255)
+dcLetter.Text = "D"
+dcLetter.TextScaled = true
+dcLetter.ZIndex = 17
+dcLetter.Parent = dcFallback
+dcFallback.Visible = true
 
 discordBtn.MouseEnter:Connect(function()
     TweenService:Create(discordBtn, TweenInfo.new(0.12),
@@ -321,6 +420,17 @@ discordBtn.MouseButton1Click:Connect(function()
         toast("󰙯  discord.gg/DbHsGBckyc", Color3.fromRGB(88,101,242))
     end
 end)
+
+-- DEBUG: force UI visible and report state
+discordBtn.Visible = true
+if Sidebar then Sidebar.Visible = true end
+if Win then Win.Visible = true end
+if dcFallback then dcFallback.Visible = true end
+if dcIcon then dcIcon.Visible = true end
+    -- debug visibility checks removed
+
+    -- DEBUG TEST GUI: always-visible overlay to confirm PlayerGui rendering
+    -- debug test GUI removed
 
 local SbNav = Instance.new("Frame")
 SbNav.Size                   = UDim2.new(1,0,1,-120)
@@ -431,17 +541,11 @@ local footer = lbl(Win, {
 footer.Visible = SavedConfig.showFooter
 
 -- ════════════════════════════════════════════════════════════
---  THEME REFS  (FIX #5 : refs directes au lieu de scan RGB)
+--  THEME REFS  (FIX [5] : refs directes au lieu de scan RGB)
 -- ════════════════════════════════════════════════════════════
--- Collectées après construction de la GUI, utilisées par applyTheme()
 local _themeRefs = {
-    bgFrames      = {},   -- frames à colorer avec C.bg
-    cardFrames    = {},   -- frames à colorer avec C.card
-    sidebarFrames = {},   -- frames à colorer avec C.sidebar
-    accentFrames  = {},   -- frames/strokes à colorer avec C.accent
-    textLabels    = {},   -- labels à colorer avec C.text
-    accentLabels  = {},   -- labels à colorer avec C.accent
-    accentButtons = {},   -- buttons à colorer avec C.accent
+    cardFrames   = {},
+    accentFrames = {},
 }
 
 -- ════════════════════════════════════════════════════════════
@@ -718,16 +822,38 @@ local function mkSidebarTab(name, order, fn)
         btn.TextColor3 = C.white
         bar.Visible    = true
 
-        -- FIX #3 : vider les refs de thème dynamiques avant de reconstruire
-        _themeRefs.cardFrames    = {}
-        _themeRefs.accentFrames  = {}
+        -- FIX [3] : vider les refs dynamiques avant de reconstruire le contenu
+        _themeRefs.cardFrames   = {}
+        _themeRefs.accentFrames = {}
+
+        -- Cleanup known global feature connections to avoid leaks
+        local function cleanupFeatureConns()
+            local function safeDisconnect(v)
+                if v and type(v.Disconnect) == 'function' then
+                    pcall(function() v:Disconnect() end)
+                end
+            end
+            if _afkConn then safeDisconnect(_afkConn); _afkConn = nil end
+            if _noclipConn then safeDisconnect(_noclipConn); _noclipConn = nil end
+            if _flyConn then safeDisconnect(_flyConn); _flyConn = nil end
+            if _speedConn then safeDisconnect(_speedConn); _speedConn = nil end
+            if _jumpConn then safeDisconnect(_jumpConn); _jumpConn = nil end
+            if _distLoop then safeDisconnect(_distLoop); _distLoop = nil end
+        end
+        cleanupFeatureConns()
 
         for _, c in ipairs(ContentScroll:GetChildren()) do
             if not c:IsA("UIListLayout") and not c:IsA("UIPadding") then
                 c:Destroy()
             end
         end
-        fn()
+        Win.Visible = true
+        Win.Size    = UDim2.new(0, MW, 0, MH)
+        local ok, err = pcall(fn)
+        if not ok then
+            toast("Erreur onglet " .. name .. " : " .. tostring(err), C.err)
+            showPanelError("Onglet " .. name .. " : " .. tostring(err))
+        end
     end
 
     btn.MouseButton1Click:Connect(activate)
@@ -758,11 +884,24 @@ local function makeGrid(order)
     grid.Parent                 = ContentScroll
 
     local gl = Instance.new("UIGridLayout")
-    gl.CellSize          = UDim2.new(0.5,-6,0,0)
-    gl.AutomaticCellSize = Enum.AutomaticSize.Y
-    gl.CellPadding       = UDim2.new(0,10,0,10)
+    gl.CellSize          = UDim2.new(0.5, -6, 0, 190)
+    gl.CellPadding       = UDim2.new(0,12,0,12)
     gl.SortOrder         = Enum.SortOrder.LayoutOrder
     gl.Parent            = grid
+
+    -- After children are created and sized, adjust CellSize height to fit tallest card
+    task.spawn(function()
+        for i=1,6 do task.wait() end
+        local maxH = 0
+        for _, child in ipairs(grid:GetChildren()) do
+            if child:IsA("Frame") then
+                maxH = math.max(maxH, child.AbsoluteSize.Y)
+            end
+        end
+        if maxH > 0 then
+            gl.CellSize = UDim2.new(0.5, -6, 0, maxH + 8)
+        end
+    end)
 
     local gp = Instance.new("UIPadding")
     gp.PaddingBottom = UDim.new(0,4)
@@ -781,16 +920,88 @@ local function unlockFPS()
     end
 end
 
-local _afkBound = false
-local function startAntiAFK()
-    if _afkBound then return end
-    _afkBound = true
-    local vu = game:GetService("VirtualUser")
-    lp.Idled:Connect(function()
-        vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-        task.wait(0.1)
-        vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-    end)
+local _afkConn = nil
+local function startAntiAFK(on)
+    if on then
+        if _afkConn then return end
+        local vu = game:GetService("VirtualUser")
+        _afkConn = lp.Idled:Connect(function()
+            vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            task.wait(0.1)
+            vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        end)
+    else
+        if _afkConn then
+            _afkConn:Disconnect()
+            _afkConn = nil
+        end
+    end
+end
+
+-- Anti-Ban (experimental)
+local _antiBanActive = false
+local _ab_oldNamecall = nil
+local _ab_oldKick = nil
+local _ab_mt = nil
+
+local function startAntiBan(on)
+    if on then
+        if _antiBanActive then return end
+        _antiBanActive = true
+        -- try to hook Kick via hookfunction
+        pcall(function()
+            if hookfunction and lp and type(lp.Kick) == 'function' then
+                _ab_oldKick = lp.Kick
+                hookfunction(lp.Kick, function(...) toast("Kick bloqué", C.accent) end)
+            end
+        end)
+
+        -- try to intercept __namecall
+        pcall(function()
+            if getrawmetatable and setreadonly and newcclosure and getnamecallmethod then
+                local mt = getrawmetatable(game)
+                _ab_mt = mt
+                setreadonly(mt, false)
+                _ab_oldNamecall = mt.__namecall
+                mt.__namecall = newcclosure(function(self, ...)
+                    local method = getnamecallmethod()
+                    if method == 'Kick' and self == lp then
+                        toast('Kick bloqué (intercept)', C.accent)
+                        return
+                    end
+                    return _ab_oldNamecall(self, ...)
+                end)
+                setreadonly(mt, true)
+            end
+        end)
+
+        -- try direct override (may error on protected envs)
+        pcall(function()
+            if lp and type(lp) == 'userdata' then
+                _ab_oldKick = _ab_oldKick or lp.Kick
+                lp.Kick = function() toast('Kick bloqué', C.accent) end
+            end
+        end)
+
+        toast('Anti-Ban activé (expérimental)', C.accent)
+    else
+        _antiBanActive = false
+        -- restore namecall
+        pcall(function()
+            if _ab_mt and _ab_oldNamecall then
+                setreadonly(_ab_mt, false)
+                _ab_mt.__namecall = _ab_oldNamecall
+                setreadonly(_ab_mt, true)
+            end
+        end)
+        -- restore Kick
+        pcall(function()
+            if lp and _ab_oldKick and type(lp) == 'userdata' then
+                lp.Kick = _ab_oldKick
+            end
+        end)
+        toast('Anti-Ban désactivé', C.muted)
+    end
 end
 
 local _fbOriginals = {}
@@ -983,16 +1194,17 @@ local function stopRadar()
 end
 
 -- ════════════════════════════════════════════════════════════
---  ÉTAT GLOBAL  (FIX #1/#3: variables module-level pour loops)
+--  ÉTAT GLOBAL
+--  FIX [1] : flags module-level pour God Mode, Auto Open, Spam
+--  FIX [3] : connections de mouvement stockées pour éviter les leaks
 -- ════════════════════════════════════════════════════════════
 local _noclipConn
 local _flyConn, _bv, _bg
 local _speedConn, _jumpConn
 
--- FIX #1 : remplace les upvalues `s` dans task.spawn par des flags module-level
-local _godActive       = false
-local _autoOpenActive  = false
-local _spamActive      = false   -- FIX #5
+local _godActive      = false  -- FIX [1]
+local _autoOpenActive = false  -- FIX [1]
+local _spamActive     = false  -- FIX [1]
 
 -- ════════════════════════════════════════════════════════════
 --  CONTENU : MAIN
@@ -1000,359 +1212,71 @@ local _spamActive      = false   -- FIX #5
 local function buildMain()
     local grid = makeGrid(1)
 
-    -- ── CARTE : JOUEUR ───────────────────────────────────────
-    local _, playerInner = makeCard("Joueur", 1, grid)
+    local _, bfInner = makeCard("Script", 1, grid)
+    mkButton(bfInner, "BLOX FRUIT", 1, function()
+        local modal = Instance.new("Frame")
+        modal.Size = UDim2.new(0,360,0,120)
+        modal.Position = UDim2.new(0.5,-180,0.5,-60)
+        modal.BackgroundColor3 = C.card
+        modal.ZIndex = 1000
+        modal.Parent = Win
+        rnd(modal, 8)
 
-    mkButton(playerInner, "Respawn", 1, function()
-        local char = lp.Character
-        if char then
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum then hum.Health = 0 end
+        local t = Instance.new("TextLabel")
+        t.Size = UDim2.new(1,-16,0,56)
+        t.Position = UDim2.new(0,8,0,8)
+        t.BackgroundTransparency = 1
+        t.Font = Enum.Font.GothamBold
+        t.TextSize = 14
+        t.TextColor3 = C.text
+        t.Text = "Voulez-vous lancer le script Blox Fruit ?"
+        t.TextWrapped = true
+        t.Parent = modal
+
+        local yes = Instance.new("TextButton")
+        yes.Size = UDim2.new(0.5,-10,0,36)
+        yes.Position = UDim2.new(0,8,1,-44)
+        yes.BackgroundColor3 = C.accent
+        yes.Font = Enum.Font.GothamBold
+        yes.TextSize = 14
+        yes.TextColor3 = C.white
+        yes.Text = "Oui"
+        yes.Parent = modal
+        rnd(yes,6)
+
+        local no = Instance.new("TextButton")
+        no.Size = UDim2.new(0.5,-10,0,36)
+        no.Position = UDim2.new(0.5,2,1,-44)
+        no.BackgroundColor3 = C.input
+        no.Font = Enum.Font.GothamBold
+        no.TextSize = 14
+        no.TextColor3 = C.text
+        no.Text = "Non"
+        no.Parent = modal
+        rnd(no,6)
+
+        local function cleanupModal()
+            if modal and modal.Parent then modal:Destroy() end
         end
-        toast("🔄 Respawn...", C.accent)
-    end)
 
-    mkToggle(playerInner, "Invisible (LocalTransparency)", 2, false, function(s)
-        local char = lp.Character
-        if not char then return end
-        for _, p in ipairs(char:GetDescendants()) do
-            if p:IsA("BasePart") or p:IsA("MeshPart") then
-                p.LocalTransparencyModifier = s and 1 or 0
-            end
-        end
-        toast(s and "👻 Invisible ON" or "👻 Invisible OFF", s and C.accent or C.muted)
-    end)
-
-    -- FIX #1 : God Mode utilise _godActive au lieu de l'upvalue s
-    mkToggle(playerInner, "God Mode (santé max loop)", 3, false, function(s)
-        _godActive = s
-        if s then
-            task.spawn(function()
-                while _godActive do
-                    local char = lp.Character
-                    local hum  = char and char:FindFirstChildOfClass("Humanoid")
-                    if hum then hum.Health = hum.MaxHealth end
-                    task.wait(0.05)
-                end
+        no.MouseButton1Click:Connect(cleanupModal)
+        yes.MouseButton1Click:Connect(function()
+            cleanupModal()
+            toast("Chargement Blox Fruit...", C.accent)
+            local ok, err = pcall(function()
+                local s = game:HttpGet("https://raw.githubusercontent.com/flazhy/QuantumOnyx/refs/heads/main/QuantumOnyx.lua")
+                local f = loadstring and loadstring(s) or load and load(s)
+                if f then f() end
             end)
-            toast("❤ God Mode ON", C.success)
-        else
-            toast("❤ God Mode OFF", C.muted)
-        end
-    end)
-
-    mkToggle(playerInner, "Freeze Position", 4, false, function(s)
-        local char = lp.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if root then
-            if s then
-                local ba      = Instance.new("BodyPosition")
-                ba.Name       = "_freeze"
-                ba.Position   = root.Position
-                ba.MaxForce   = Vector3.new(1e9, 1e9, 1e9)
-                ba.Parent     = root
+            if not ok then
+                toast("Échec chargement: "..tostring(err), C.err)
             else
-                local ba = root:FindFirstChild("_freeze")
-                if ba then ba:Destroy() end
+                toast("Script Blox Fruit chargé", C.success)
             end
-        end
-        toast(s and "❄ Position gelée" or "❄ Position libérée", s and C.accent or C.muted)
-    end, "freezePos")
-
-    -- FIX #4 : Auto Open utilise _autoOpenActive
-    mkToggle(playerInner, "Auto Open", 5, false, function(s)
-        _autoOpenActive = s
-        if s then
-            task.spawn(function()
-                while _autoOpenActive do
-                    fireRemote("OpenChest")
-                    fireRemote("OpenCrate")
-                    fireRemote("Open")
-                    task.wait(0.8)
-                end
-            end)
-            toast("✓ Auto Open ON", C.success)
-        else
-            toast("Auto Open OFF", C.muted)
-        end
-    end, "autoOpen")
-
-    -- ── CARTE : OUTILS RAPIDES ───────────────────────────────
-    local _, toolsInner = makeCard("Outils Rapides", 2, grid)
-
-    mkButton(toolsInner, "Copier position", 1, function()
-        local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-        if not root then toast("❌ Personnage introuvable", C.err) return end
-        local p   = root.Position
-        local str = string.format("%.2f, %.2f, %.2f", p.X, p.Y, p.Z)
-        pcall(setclipboard, str)
-        toast("📋 " .. str, C.accent)
-    end)
-
-    mkButton(toolsInner, "Aller au spawn", 2, function()
-        local root  = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-        local spawn = workspace:FindFirstChildOfClass("SpawnLocation")
-        if root and spawn then
-            root.CFrame = spawn.CFrame + Vector3.new(0, 3, 0)
-            toast("📍 Spawn", C.accent)
-        else
-            toast("❌ Spawn introuvable", C.err)
-        end
-    end)
-
-    mkButton(toolsInner, "Rejoindre serveur aléatoire", 3, function()
-        local tp   = game:GetService("TeleportService")
-        local plId = game.PlaceId
-        local ok, servers = pcall(function()
-            return game:GetService("HttpService"):JSONDecode(
-                game:GetService("HttpService"):GetAsync(
-                    "https://games.roblox.com/v1/games/" .. plId .. "/servers/Public?sortOrder=Asc&limit=10"
-                )
-            )
         end)
-        if ok and servers and servers.data and #servers.data > 0 then
-            local s = servers.data[math.random(1, #servers.data)]
-            tp:TeleportToPlaceInstance(plId, s.id, lp)
-            toast("🎲 Changement de serveur...", C.accent)
-        else
-            tp:Teleport(plId, lp)
-            toast("🎲 Nouveau serveur...", C.accent)
-        end
-    end)
-
-    mkButton(toolsInner, "Kick soi-même", 4, function()
-        lp:Kick("[SinixHub] Auto-kick")
-    end)
-
-    -- ── CARTE : CHAT ─────────────────────────────────────────
-    local _, chatInner = makeCard("Chat", 3, grid)
-
-    local chatMsg = ""
-
-    local chatBox = Instance.new("TextBox")
-    chatBox.Size              = UDim2.new(1,0,0,28)
-    chatBox.BackgroundColor3  = C.input
-    chatBox.BorderSizePixel   = 0
-    chatBox.Font              = Enum.Font.Gotham
-    chatBox.TextSize          = 13
-    chatBox.TextColor3        = C.text
-    chatBox.PlaceholderText   = "Message à envoyer..."
-    chatBox.PlaceholderColor3 = C.muted
-    chatBox.ClearTextOnFocus  = false
-    chatBox.LayoutOrder       = 1
-    chatBox.ZIndex            = 15
-    chatBox.Parent            = chatInner
-    rnd(chatBox, 5)
-    bdr(chatBox, C.border)
-    chatBox:GetPropertyChangedSignal("Text"):Connect(function() chatMsg = chatBox.Text end)
-
-    mkButton(chatInner, "Envoyer message", 2, function()
-        if chatMsg == "" then toast("❌ Message vide", C.err) return end
-        local cs = game:GetService("Chat")
-        pcall(function() cs:Chat(lp.Character and lp.Character:FindFirstChild("Head"), chatMsg, Enum.ChatColor.White) end)
-        pcall(function()
-            game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
-                :FindFirstChild("SayMessageRequest"):FireServer(chatMsg, "All")
-        end)
-        toast("💬 Envoyé : " .. chatMsg, C.accent)
-    end)
-
-    -- FIX #5 : Spam utilise _spamActive au lieu de SPAM_ACTIVE local
-    mkButton(chatInner, "Spam ON/OFF", 3, function()
-        _spamActive = not _spamActive
-        if _spamActive and chatMsg ~= "" then
-            task.spawn(function()
-                while _spamActive do
-                    pcall(function()
-                        game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
-                            :FindFirstChild("SayMessageRequest"):FireServer(chatMsg, "All")
-                    end)
-                    task.wait(1)
-                end
-            end)
-            toast("💬 Spam ON — " .. chatMsg, C.accent)
-        else
-            _spamActive = false
-            toast("💬 Spam OFF", C.muted)
-        end
-    end)
-
-    -- ── CARTE : PERSONNAGE ───────────────────────────────────
-    local _, charInner = makeCard("Personnage", 4, grid)
-
-    mkSlider(charInner, "Taille du personnage", 50, 300, 100, 1, function(v)
-        local char = lp.Character
-        if not char then return end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum.BodyDepthScale.Value  = v / 100
-            hum.BodyHeightScale.Value = v / 100
-            hum.BodyWidthScale.Value  = v / 100
-            hum.HeadScale.Value       = v / 100
-        end
-    end)
-
-    mkButton(charInner, "Réinitialiser la taille", 2, function()
-        local char = lp.Character
-        if not char then return end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum.BodyDepthScale.Value  = 1
-            hum.BodyHeightScale.Value = 1
-            hum.BodyWidthScale.Value  = 1
-            hum.HeadScale.Value       = 1
-        end
-        toast("↩ Taille réinitialisée", C.muted)
-    end)
-
-    mkToggle(charInner, "Tête géante", 3, false, function(s)
-        local char = lp.Character
-        if not char then return end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then hum.HeadScale.Value = s and 5 or 1 end
-        toast(s and "🗿 Grosse tête ON" or "🗿 Tête normale", s and C.accent or C.muted)
-    end)
-
-    mkToggle(charInner, "Walk Animation OFF", 4, false, function(s)
-        local char = lp.Character
-        local hum  = char and char:FindFirstChildOfClass("Humanoid")
-        if not hum then return end
-        local animator = hum:FindFirstChildOfClass("Animator")
-        if animator then
-            for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-                if s then track:Stop() else track:Play() end
-            end
-        end
-        toast(s and "🚶 Anim OFF" or "🚶 Anim ON", s and C.accent or C.muted)
-    end)
-
-    -- ── CARTE : WORKSPACE ────────────────────────────────────
-    local _, wsInner = makeCard("Workspace", 5, grid)
-
-    mkButton(wsInner, "Supprimer tous les NPCs", 1, function()
-        local count = 0
-        for _, v in ipairs(workspace:GetDescendants()) do
-            if v:IsA("Model") and v ~= lp.Character then
-                local hum = v:FindFirstChildOfClass("Humanoid")
-                if hum then v:Destroy() ; count = count + 1 end
-            end
-        end
-        toast("🗑 " .. count .. " NPC(s) supprimé(s)", C.accent)
-    end)
-
-    mkButton(wsInner, "Supprimer les BaseParts (décors)", 2, function()
-        local count = 0
-        for _, v in ipairs(workspace:GetDescendants()) do
-            if v:IsA("BasePart") and v.Locked == false
-               and not v:IsDescendantOf(lp.Character or Instance.new("Folder")) then
-                local ok = pcall(function() v:Destroy() end)
-                if ok then count = count + 1 end
-            end
-        end
-        toast("🗑 " .. count .. " part(s) supprimée(s)", C.accent)
-    end)
-
-    mkButton(wsInner, "Lumière maximale (Ambient)", 3, function()
-        local l = game:GetService("Lighting")
-        l.Ambient        = Color3.fromRGB(255,255,255)
-        l.OutdoorAmbient = Color3.fromRGB(255,255,255)
-        toast("☀ Ambient max", C.success)
-    end)
-
-    mkButton(wsInner, "Remettre la lumière", 4, function()
-        local l = game:GetService("Lighting")
-        l.Ambient        = Color3.fromRGB(70,70,70)
-        l.OutdoorAmbient = Color3.fromRGB(127,127,127)
-        toast("☀ Lumière normale", C.muted)
-    end)
-
-    mkToggle(wsInner, "Afficher hitboxes (SelectionBox)", 5, false, function(s)
-        local tag = "_sinixHitbox"
-        if s then
-            for _, v in ipairs(workspace:GetDescendants()) do
-                if v:IsA("Model") and v ~= lp.Character then
-                    local hum = v:FindFirstChildOfClass("Humanoid")
-                    if hum then
-                        local box               = Instance.new("SelectionBox")
-                        box.Name                = tag
-                        box.Color3              = C.err
-                        box.LineThickness        = 0.03
-                        box.SurfaceTransparency  = 0.85
-                        box.SurfaceColor3        = C.err
-                        box.Adornee              = v
-                        box.Parent               = workspace
-                    end
-                end
-            end
-            toast("🟥 Hitboxes ON", C.err)
-        else
-            for _, v in ipairs(workspace:GetDescendants()) do
-                if v.Name == tag then v:Destroy() end
-            end
-            toast("🟥 Hitboxes OFF", C.muted)
-        end
-    end)
-
-    -- ── CARTE : INFOS SERVEUR ────────────────────────────────
-    local _, infoInner = makeCard("Infos Serveur", 6, grid)
-
-    local infoData = {
-        { "Joueur",  lp.Name },
-        { "UserId",  tostring(lp.UserId) },
-        { "PlaceId", tostring(game.PlaceId) },
-        { "JobId",   game.JobId:sub(1,18) .. "..." },
-        { "Joueurs", tostring(#Players:GetPlayers()) .. " / " .. tostring(Players.MaxPlayers) },
-        { "Ping",    tostring(math.floor(lp:GetNetworkPing() * 1000)) .. " ms" },
-    }
-
-    for i, row in ipairs(infoData) do
-        local rowFrame = Instance.new("Frame")
-        rowFrame.Size                   = UDim2.new(1,0,0,22)
-        rowFrame.BackgroundTransparency = 1
-        rowFrame.LayoutOrder            = i
-        rowFrame.ZIndex                 = 14
-        rowFrame.Parent                 = infoInner
-
-        lbl(rowFrame, {
-            Size           = UDim2.new(0.45,0,1,0),
-            Font           = Enum.Font.GothamBold,
-            TextSize       = 12,
-            TextColor3     = C.muted,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            Text           = row[1],
-            ZIndex         = 15,
-        })
-        lbl(rowFrame, {
-            Size           = UDim2.new(0.55,0,1,0),
-            Position       = UDim2.new(0.45,0,0,0),
-            Font           = Enum.Font.Gotham,
-            TextSize       = 12,
-            TextColor3     = C.text,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            Text           = row[2],
-            ZIndex         = 15,
-        })
-    end
-
-    task.spawn(function()
-        while infoInner and infoInner.Parent do
-            for _, child in ipairs(infoInner:GetChildren()) do
-                if child:IsA("Frame") and child.LayoutOrder == 6 then
-                    for _, l in ipairs(child:GetChildren()) do
-                        if l:IsA("TextLabel")
-                           and l.TextXAlignment == Enum.TextXAlignment.Left
-                           and l.Font == Enum.Font.Gotham then
-                            l.Text = math.floor(lp:GetNetworkPing() * 1000) .. " ms"
-                        end
-                    end
-                end
-            end
-            task.wait(1)
-        end
     end)
 end
 
--- ════════════════════════════════════════════════════════════
 --  CONTENU : TELEPORTS
 -- ════════════════════════════════════════════════════════════
 local function buildTeleports()
@@ -1518,6 +1442,7 @@ local function buildMisc()
     mkSlider(movInner, "WalkSpeed", 8, 500, 16, 1, function(v)
         local h = lp.Character and lp.Character:FindFirstChild("Humanoid")
         if h then h.WalkSpeed = v end
+        -- FIX [3] : disconnect avant de rebinder pour éviter l'accumulation
         if _speedConn then _speedConn:Disconnect() end
         _speedConn = lp.CharacterAdded:Connect(function(c)
             local h2 = c:WaitForChild("Humanoid", 5)
@@ -1528,6 +1453,7 @@ local function buildMisc()
     mkSlider(movInner, "JumpPower", 10, 500, 50, 2, function(v)
         local h = lp.Character and lp.Character:FindFirstChild("Humanoid")
         if h then h.JumpPower = v end
+        -- FIX [3] : idem
         if _jumpConn then _jumpConn:Disconnect() end
         _jumpConn = lp.CharacterAdded:Connect(function(c)
             local h2 = c:WaitForChild("Humanoid", 5)
@@ -1630,14 +1556,14 @@ local function buildMisc()
         if s then
             _bv = Instance.new("BodyVelocity")
             _bv.MaxForce = Vector3.new(1e5,1e5,1e5)
-            _bv.Velocity = Vector3.zero
+            _bv.Velocity = Vector3.new(0,0,0)
             _bv.Parent   = root
             _bg = Instance.new("BodyGyro")
             _bg.MaxTorque = Vector3.new(1e5,1e5,1e5)
             _bg.D = 100 ; _bg.Parent = root
             local cam = workspace.CurrentCamera
             _flyConn = RunService.Heartbeat:Connect(function()
-                local d = Vector3.zero
+                local d = Vector3.new(0,0,0)
                 local u = UserInputService
                 if u:IsKeyDown(Enum.KeyCode.W) or u:IsKeyDown(Enum.KeyCode.Z) then d=d+cam.CFrame.LookVector  end
                 if u:IsKeyDown(Enum.KeyCode.S)                                  then d=d-cam.CFrame.LookVector  end
@@ -1646,7 +1572,7 @@ local function buildMisc()
                 if u:IsKeyDown(Enum.KeyCode.Space)                              then d=d+Vector3.yAxis           end
                 if u:IsKeyDown(Enum.KeyCode.LeftControl)                        then d=d-Vector3.yAxis           end
                 if _bv and _bv.Parent then
-                    _bv.Velocity = d.Magnitude>0 and d.Unit*90 or Vector3.zero
+                    _bv.Velocity = d.Magnitude>0 and d.Unit*90 or Vector3.new(0,0,0)
                 end
                 if _bg and _bg.Parent then _bg.CFrame = cam.CFrame end
             end)
@@ -1670,7 +1596,7 @@ local _espNames         = {}
 local ESP_COLOR  = Color3.fromRGB(120,80,220)
 local NAME_COLOR = Color3.fromRGB(230,230,230)
 
--- FIX #2 : espClearNames nil-ifie _distLoop pour que startDistLoop() puisse repartir
+-- FIX [2] : espClearNames() nil-ifie _distLoop → startDistLoop() peut repartir proprement
 local _distLoop
 
 local function espClearSkeleton()
@@ -1685,7 +1611,7 @@ local function espClearNames()
     _espNames = {}
     for _, c in pairs(_espNameConns) do c:Disconnect() end
     _espNameConns = {}
-    -- FIX #2 : libère le loop pour qu'il puisse être redémarré
+    -- FIX [2] : libère le Heartbeat pour éviter le double-bind silencieux
     if _distLoop then _distLoop:Disconnect() ; _distLoop = nil end
 end
 
@@ -1694,12 +1620,17 @@ local function drawSkeleton(player)
     local char = player.Character
     if not char then return end
 
+    local adornee = char:FindFirstChild("UpperTorso")
+        or char:FindFirstChild("HumanoidRootPart")
+        or char:FindFirstChildWhichIsA("BasePart")
+    if not adornee then return end
+
     local box = Instance.new("SelectionBox")
     box.Color3              = ESP_COLOR
     box.LineThickness       = 0.04
     box.SurfaceTransparency = 0.85
     box.SurfaceColor3       = ESP_COLOR
-    box.Adornee             = char
+    box.Adornee             = adornee
     box.Parent              = workspace
     _espBoxes[player.Name]  = box
 
@@ -1798,6 +1729,7 @@ local function refreshESP()
     if _nameOn then
         espClearNames()
         for _, p in ipairs(Players:GetPlayers()) do drawName(p) end
+        startDistLoop()
     end
 end
 
@@ -1811,8 +1743,10 @@ local ESP_PALETTES = {
 local _espPaletteIdx = SavedConfig.espColor or 1
 ESP_COLOR = ESP_PALETTES[_espPaletteIdx] and ESP_PALETTES[_espPaletteIdx].col or ESP_COLOR
 
+-- FIX [2] : guard `if _distLoop then return end` bloquait les relances
+-- après espClearNames(). Nil-ifier _distLoop dans espClearNames() corrige ça.
 local function startDistLoop()
-    if _distLoop then return end  -- guard: nil-ifié par espClearNames(), safe de rappeler
+    if _distLoop then return end
     _distLoop = RunService.Heartbeat:Connect(function()
         if not _nameOn then return end
         local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
@@ -2036,7 +1970,9 @@ local function buildESP()
         end
     end)
 
+    local _espHPBarActive = false
     mkToggle(espInner, "Barre de vie", 3, false, function(s)
+        _espHPBarActive = s
         for _, bg in pairs(_espNames) do
             local existing = bg:FindFirstChild("_hpBar")
             if s and not existing then
@@ -2063,7 +1999,7 @@ local function buildESP()
         end
         if s then
             task.spawn(function()
-                while s do
+                while _espHPBarActive do
                     for _, p in ipairs(Players:GetPlayers()) do
                         local bg = _espNames[p.Name]
                         if bg then
@@ -2084,6 +2020,11 @@ local function buildESP()
                     task.wait(0.1)
                 end
             end)
+        else
+            for _, bg in pairs(_espNames) do
+                local existing = bg:FindFirstChild("_hpBar")
+                if existing then existing:Destroy() end
+            end
         end
         toast(s and "❤ Barre de vie ON" or "❤ Barre de vie OFF",
               s and C.success or C.muted)
@@ -2135,12 +2076,8 @@ local function buildVisual()
     end, "unlockFPS")
 
     mkToggle(sysInner, "Anti-AFK", 2, false, function(s)
-        if s then
-            startAntiAFK()
-            toast("✓ Anti-AFK ON", C.success)
-        else
-            toast("Anti-AFK OFF", C.muted)
-        end
+        startAntiAFK(s)
+        toast(s and "✓ Anti-AFK ON" or "Anti-AFK OFF", s and C.success or C.muted)
     end, "antiAFK")
 end
 
@@ -2216,7 +2153,7 @@ local THEMES = {
     { name="Caramel",         accent=Color3.fromRGB(200,140,60),  bg=Color3.fromRGB(18,12,6),   card=Color3.fromRGB(28,18,10),  sidebar=Color3.fromRGB(22,14,8),   text=Color3.fromRGB(245,220,180) },
 }
 
--- FIX #5 : applyTheme() via refs directes — plus de scan RGB fragile
+-- FIX [5] : applyTheme() via refs directes — no more RGB scan
 local function applyTheme(theme)
     C.accent  = theme.accent
     C.accentD = Color3.fromRGB(
@@ -2229,7 +2166,6 @@ local function applyTheme(theme)
     C.sidebar = theme.sidebar
     C.text    = theme.text
 
-    -- Éléments statiques (construits une seule fois)
     Win.BackgroundColor3               = C.bg
     TopBar.BackgroundColor3            = C.bg
     Sidebar.BackgroundColor3           = C.sidebar
@@ -2237,7 +2173,6 @@ local function applyTheme(theme)
     footer.TextColor3                  = C.muted
     ContentScroll.ScrollBarImageColor3 = C.accent
 
-    -- Éléments dynamiques (reconstruits à chaque tab switch)
     for _, f in ipairs(_themeRefs.cardFrames) do
         if f and f.Parent then f.BackgroundColor3 = C.card end
     end
@@ -2245,14 +2180,12 @@ local function applyTheme(theme)
         if f and f.Parent then f.BackgroundColor3 = C.accent end
     end
 
-    -- Barre active sidebar
     if activeTabBtn then
         local bar = activeTabBtn:FindFirstChild("bar")
         if bar then bar.BackgroundColor3 = C.accent end
         activeTabBtn.TextColor3 = C.text
     end
 
-    -- ESP couleur
     if _skeletonOn or _nameOn then
         ESP_COLOR = C.accent
         refreshESP()
@@ -2277,13 +2210,367 @@ local function buildSettings()
         footer.Visible = s
     end, "showFooter")
 
-    mkButton(uiInner, "Fermer l'interface", 3, function()
+    mkToggle(uiInner, "Anti-Ban (expérimental)", 3, false, function(s)
+        startAntiBan(s)
+        if s then cfg("antiBan", true) else cfg("antiBan", false) end
+    end, "antiBan")
+
+    mkButton(uiInner, "Fermer l'interface", 4, function()
         Root:Destroy()
+    end)
+
+    -- ── CARTE : JOUEUR ───────────────────────────────────────
+    local _, playerInner = makeCard("Joueur", 5)
+
+    mkButton(playerInner, "Respawn", 1, function()
+        local char = lp.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.Health = 0 end
+        end
+        toast("🔄 Respawn...", C.accent)
+    end)
+
+    mkToggle(playerInner, "Invisible (LocalTransparency)", 2, false, function(s)
+        local char = lp.Character
+        if not char then return end
+        for _, p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") or p:IsA("MeshPart") then
+                p.LocalTransparencyModifier = s and 1 or 0
+            end
+        end
+        toast(s and "👻 Invisible ON" or "👻 Invisible OFF", s and C.accent or C.muted)
+    end)
+
+    mkToggle(playerInner, "God Mode (santé max loop)", 3, false, function(s)
+        _godActive = s
+        if s then
+            task.spawn(function()
+                while _godActive do
+                    local char = lp.Character
+                    local hum  = char and char:FindFirstChildOfClass("Humanoid")
+                    if hum then hum.Health = hum.MaxHealth end
+                    task.wait(0.05)
+                end
+            end)
+            toast("❤ God Mode ON", C.success)
+        else
+            toast("❤ God Mode OFF", C.muted)
+        end
+    end)
+
+    mkToggle(playerInner, "Freeze Position", 4, false, function(s)
+        local char = lp.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            if s then
+                local ba      = Instance.new("BodyPosition")
+                ba.Name       = "_freeze"
+                ba.Position   = root.Position
+                ba.MaxForce   = Vector3.new(1e9, 1e9, 1e9)
+                ba.Parent     = root
+            else
+                local ba = root:FindFirstChild("_freeze")
+                if ba then ba:Destroy() end
+            end
+        end
+        toast(s and "❄ Position gelée" or "❄ Position libérée", s and C.accent or C.muted)
+    end, "freezePos")
+
+    mkToggle(playerInner, "Auto Open", 5, false, function(s)
+        _autoOpenActive = s
+        if s then
+            task.spawn(function()
+                while _autoOpenActive do
+                    fireRemote("OpenChest")
+                    fireRemote("OpenCrate")
+                    fireRemote("Open")
+                    task.wait(0.8)
+                end
+            end)
+            toast("✓ Auto Open ON", C.success)
+        else
+            toast("Auto Open OFF", C.muted)
+        end
+    end, "autoOpen")
+
+    -- ── CARTE : OUTILS RAPIDES ───────────────────────────────
+    local _, toolsInner = makeCard("Outils Rapides", 6)
+
+    mkButton(toolsInner, "Copier position", 1, function()
+        local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        if not root then toast("❌ Personnage introuvable", C.err) return end
+        local p   = root.Position
+        local str = string.format("%.2f, %.2f, %.2f", p.X, p.Y, p.Z)
+        pcall(setclipboard, str)
+        toast("📋 " .. str, C.accent)
+    end)
+
+    mkButton(toolsInner, "Aller au spawn", 2, function()
+        local root  = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        local spawn = workspace:FindFirstChildOfClass("SpawnLocation")
+        if root and spawn then
+            root.CFrame = spawn.CFrame + Vector3.new(0, 3, 0)
+            toast("📍 Spawn", C.accent)
+        else
+            toast("❌ Spawn introuvable", C.err)
+        end
+    end)
+
+    mkButton(toolsInner, "Rejoindre serveur aléatoire", 3, function()
+        local tp   = game:GetService("TeleportService")
+        local plId = game.PlaceId
+        local ok, servers = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(
+                game:GetService("HttpService"):GetAsync(
+                    "https://games.roblox.com/v1/games/" .. plId .. "/servers/Public?sortOrder=Asc&limit=10"
+                )
+            )
+        end)
+        if ok and servers and servers.data and #servers.data > 0 then
+            local s = servers.data[math.random(1, #servers.data)]
+            tp:TeleportToPlaceInstance(plId, s.id, lp)
+            toast("🎲 Changement de serveur...", C.accent)
+        else
+            tp:Teleport(plId, lp)
+            toast("🎲 Nouveau serveur...", C.accent)
+        end
+    end)
+
+    mkButton(toolsInner, "Kick soi-même", 4, function()
+        lp:Kick("[SinixHub] Auto-kick")
+    end)
+
+    -- ── CARTE : CHAT ─────────────────────────────────────────
+    local _, chatInner = makeCard("Chat", 7)
+
+    local chatMsg = ""
+
+    local chatBox = Instance.new("TextBox")
+    chatBox.Size              = UDim2.new(1,0,0,28)
+    chatBox.BackgroundColor3  = C.input
+    chatBox.BorderSizePixel   = 0
+    chatBox.Font              = Enum.Font.Gotham
+    chatBox.TextSize          = 13
+    chatBox.TextColor3        = C.text
+    chatBox.PlaceholderText   = "Message à envoyer..."
+    chatBox.PlaceholderColor3 = C.muted
+    chatBox.ClearTextOnFocus  = false
+    chatBox.LayoutOrder       = 1
+    chatBox.ZIndex            = 15
+    chatBox.Parent            = chatInner
+    rnd(chatBox, 5)
+    bdr(chatBox, C.border)
+    chatBox:GetPropertyChangedSignal("Text"):Connect(function() chatMsg = chatBox.Text end)
+
+    mkButton(chatInner, "Envoyer message", 2, function()
+        if chatMsg == "" then toast("❌ Message vide", C.err) return end
+        local cs = game:GetService("Chat")
+        pcall(function() cs:Chat(lp.Character and lp.Character:FindFirstChild("Head"), chatMsg, Enum.ChatColor.White) end)
+        pcall(function()
+            game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+                :FindFirstChild("SayMessageRequest"):FireServer(chatMsg, "All")
+        end)
+        toast("💬 Envoyé : " .. chatMsg, C.accent)
+    end)
+
+    mkButton(chatInner, "Spam ON/OFF", 3, function()
+        _spamActive = not _spamActive
+        if _spamActive and chatMsg ~= "" then
+            task.spawn(function()
+                while _spamActive do
+                    pcall(function()
+                        game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+                            :FindFirstChild("SayMessageRequest"):FireServer(chatMsg, "All")
+                    end)
+                    task.wait(1)
+                end
+            end)
+        else
+            _spamActive = false
+        end
+        toast(_spamActive and "💬 Spam ON" or "💬 Spam OFF", _spamActive and C.success or C.muted)
+    end)
+
+    -- ── CARTE : PERSONNAGE ───────────────────────────────────
+    local _, charInner = makeCard("Personnage", 8)
+
+    mkButton(charInner, "WalkSpeed 100", 1, function()
+        local char = lp.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.WalkSpeed = 100 end
+        end
+        toast("🏃 WalkSpeed 100", C.accent)
+    end)
+
+    mkButton(charInner, "JumpPower 100", 2, function()
+        local char = lp.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.JumpPower = 100 end
+        end
+        toast("🦘 JumpPower 100", C.accent)
+    end)
+
+    mkButton(charInner, "Reset Humanoid", 3, function()
+        local char = lp.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.Health = hum.MaxHealth
+                hum.WalkSpeed = 16
+                hum.JumpPower = 50
+            end
+        end
+        toast("🔄 Personnage réinitialisé", C.accent)
+    end)
+
+    -- ── CARTE : WORKSPACE ───────────────────────────────────
+    local _, wsInner = makeCard("Workspace", 9)
+
+    mkButton(wsInner, "Supprimer tous les NPCs", 1, function()
+        local count = 0
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("Model") and v ~= lp.Character then
+                local hum = v:FindFirstChildOfClass("Humanoid")
+                if hum then v:Destroy() ; count = count + 1 end
+            end
+        end
+        toast("🗑 " .. count .. " NPC(s) supprimé(s)", C.accent)
+    end)
+
+    mkButton(wsInner, "Supprimer les BaseParts (décors)", 2, function()
+        local count = 0
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and v.Locked == false
+               and not v:IsDescendantOf(lp.Character or Instance.new("Folder")) then
+                local ok = pcall(function() v:Destroy() end)
+                if ok then count = count + 1 end
+            end
+        end
+        toast("🗑 " .. count .. " part(s) supprimée(s)", C.accent)
+    end)
+
+    mkButton(wsInner, "Lumière maximale (Ambient)", 3, function()
+        local l = game:GetService("Lighting")
+        l.Ambient        = Color3.fromRGB(255,255,255)
+        l.OutdoorAmbient = Color3.fromRGB(255,255,255)
+        toast("☀ Ambient max", C.success)
+    end)
+
+    mkButton(wsInner, "Remettre la lumière", 4, function()
+        local l = game:GetService("Lighting")
+        l.Ambient        = Color3.fromRGB(70,70,70)
+        l.OutdoorAmbient = Color3.fromRGB(127,127,127)
+        toast("☀ Lumière normale", C.muted)
+    end)
+
+    mkToggle(wsInner, "Afficher hitboxes (SelectionBox)", 5, false, function(s)
+        local tag = "_sinixHitbox"
+        if s then
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("Model") and v ~= lp.Character then
+                    local hum = v:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        local adornPart = v.PrimaryPart or v:FindFirstChildWhichIsA("BasePart")
+                        if adornPart then
+                            local box               = Instance.new("SelectionBox")
+                            box.Name                = tag
+                            box.Color3              = C.err
+                            box.LineThickness       = 0.03
+                            box.SurfaceTransparency = 0.85
+                            box.SurfaceColor3       = C.err
+                            box.Adornee             = adornPart
+                            box.Parent              = workspace
+                        end
+                    end
+                end
+            end
+            toast("🟥 Hitboxes ON", C.err)
+        else
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v.Name == tag then v:Destroy() end
+            end
+            toast("🟥 Hitboxes OFF", C.muted)
+        end
+    end)
+
+    -- ── CARTE : INFOS SERVEUR ───────────────────────────────
+    local _, infoInner = makeCard("Infos Serveur", 10)
+
+    local jobId = tostring(game.JobId or "")
+    if jobId == "" then jobId = "N/A" end
+    local ping = pcall(function() return lp:GetNetworkPing() end)
+    local pingText = "N/A"
+    if ping then
+        local pval = lp:GetNetworkPing()
+        pingText = tostring(math.floor(pval * 1000)) .. " ms"
+    end
+    local infoData = {
+        { "Joueur",  lp.Name },
+        { "UserId",  tostring(lp.UserId) },
+        { "PlaceId", tostring(game.PlaceId) },
+        { "JobId",   jobId ~= "N/A" and jobId:sub(1,18) .. "..." or jobId },
+        { "Joueurs", tostring(#Players:GetPlayers()) .. " / " .. tostring(Players.MaxPlayers) },
+        { "Ping",    pingText },
+    }
+
+    for i, row in ipairs(infoData) do
+        local rowFrame = Instance.new("Frame")
+        rowFrame.Size                   = UDim2.new(1,0,0,22)
+        rowFrame.BackgroundTransparency = 1
+        rowFrame.LayoutOrder            = i
+        rowFrame.ZIndex                 = 14
+        rowFrame.Parent                 = infoInner
+
+        lbl(rowFrame, {
+            Size           = UDim2.new(0.45,0,1,0),
+            Font           = Enum.Font.GothamBold,
+            TextSize       = 12,
+            TextColor3     = C.muted,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Text           = row[1],
+            ZIndex         = 15,
+        })
+        lbl(rowFrame, {
+            Size           = UDim2.new(0.55,0,1,0),
+            Position       = UDim2.new(0.45,0,0,0),
+            Font           = Enum.Font.Gotham,
+            TextSize       = 12,
+            TextColor3     = C.text,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Text           = row[2],
+            ZIndex         = 15,
+        })
+    end
+
+    task.spawn(function()
+        while infoInner and infoInner.Parent do
+            local ping = pcall(function() return lp:GetNetworkPing() end)
+            local pingText = "N/A"
+            if ping then
+                local pval = lp:GetNetworkPing()
+                pingText = tostring(math.floor(pval * 1000)) .. " ms"
+            end
+            for _, child in ipairs(infoInner:GetChildren()) do
+                if child:IsA("Frame") and child.LayoutOrder == 6 then
+                    for _, l in ipairs(child:GetChildren()) do
+                        if l:IsA("TextLabel")
+                           and l.TextXAlignment == Enum.TextXAlignment.Left
+                           and l.Font == Enum.Font.Gotham then
+                            l.Text = pingText
+                        end
+                    end
+                end
+            end
+            task.wait(1)
+        end
     end)
 
     local _, saveInner = makeCard("Sauvegarde", 2)
 
-    -- FIX #6 : LayoutOrder ajouté sur tous les lbl() de buildSettings
+    -- FIX [4] : LayoutOrder explicite sur tous les lbl() dans buildSettings
     lbl(saveInner, {
         Size           = UDim2.new(1,0,0,20),
         LayoutOrder    = 1,
@@ -2321,7 +2608,7 @@ local function buildSettings()
         "PlaceId : " .. game.PlaceId,
         "Joueurs : " .. #Players:GetPlayers(),
     }
-    -- FIX #6 : LayoutOrder présent sur chaque lbl() dans la carte Session
+    -- FIX [4] : LayoutOrder explicite sur chaque lbl() de la carte Session
     for i, r in ipairs(rows) do
         lbl(infoInner, {
             Size           = UDim2.new(1,0,0,20),
@@ -2484,6 +2771,7 @@ local tMisc,      activateMisc      = mkSidebarTab("Misc",      3, buildMisc)
 local tESP,       activateESP       = mkSidebarTab("ESP",       4, buildESP)
 local tVisual,    activateVisual    = mkSidebarTab("Visual",    5, buildVisual)
 local tSettings,  activateSettings  = mkSidebarTab("Settings",  6, buildSettings)
+activateMain()
 
 -- ════════════════════════════════════════════════════════════
 --  TOGGLE MENU  (RightShift)
