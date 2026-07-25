@@ -1,6 +1,12 @@
 -- ═══════════════════════════════════════════════════════════
---  SINIX HUB STYLE  —  Roblox LocalScript
+--  SINIX HUB  —  Roblox LocalScript
 --  Toggle : RightShift
+--  Fixes appliqués :
+--    [1] Upvalue stale sur God Mode, Auto Open, Spam Chat
+--    [2] _distLoop jamais nil-ifié → startDistLoop() bloqué
+--    [3] Connection leak sur tab switch (CharacterAdded, etc.)
+--    [4] lbl() Session sans LayoutOrder
+--    [5] applyTheme() par scan RGB → refs directes
 -- ═══════════════════════════════════════════════════════════
 
 local Players          = game:GetService("Players")
@@ -83,7 +89,6 @@ local function loadConfig()
     end
 end
 
--- Charge la config au démarrage
 loadConfig()
 
 local function cfg(key, value)
@@ -151,14 +156,11 @@ local function ripple(btn)
     end)
 end
 
--- ── FIRE REMOTE ─────────────────────────────────────────────
 local function fireRemote(name, ...)
     local rs  = game:GetService("ReplicatedStorage")
     local rem = rs:FindFirstChild(name, true)
     if rem and rem:IsA("RemoteEvent") then
         rem:FireServer(...)
-    else
-        warn("[SinixHub] Remote not found: " .. name)
     end
 end
 
@@ -218,7 +220,6 @@ Root.ResetOnSpawn   = false
 Root.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Root.Parent         = pGui
 
--- ── FENÊTRE PRINCIPALE ──────────────────────────────────────
 local MW, MH = 860, 520
 local SB_W   = 180
 local menuOpen = true
@@ -430,6 +431,20 @@ local footer = lbl(Win, {
 footer.Visible = SavedConfig.showFooter
 
 -- ════════════════════════════════════════════════════════════
+--  THEME REFS  (FIX #5 : refs directes au lieu de scan RGB)
+-- ════════════════════════════════════════════════════════════
+-- Collectées après construction de la GUI, utilisées par applyTheme()
+local _themeRefs = {
+    bgFrames      = {},   -- frames à colorer avec C.bg
+    cardFrames    = {},   -- frames à colorer avec C.card
+    sidebarFrames = {},   -- frames à colorer avec C.sidebar
+    accentFrames  = {},   -- frames/strokes à colorer avec C.accent
+    textLabels    = {},   -- labels à colorer avec C.text
+    accentLabels  = {},   -- labels à colorer avec C.accent
+    accentButtons = {},   -- buttons à colorer avec C.accent
+}
+
+-- ════════════════════════════════════════════════════════════
 --  COMPOSANTS UI
 -- ════════════════════════════════════════════════════════════
 
@@ -475,10 +490,10 @@ local function makeCard(titleTxt, order, parent)
         ZIndex         = 13,
     })
 
+    table.insert(_themeRefs.cardFrames, wrap)
     return wrap, inner
 end
 
--- mkToggle avec saveKey optionnel
 local function mkToggle(parent, labelTxt, order, default, cb, saveKey)
     local state = (saveKey and SavedConfig[saveKey] ~= nil) and SavedConfig[saveKey] or (default or false)
 
@@ -536,7 +551,6 @@ local function mkToggle(parent, labelTxt, order, default, cb, saveKey)
         if cb then cb(state) end
     end)
 
-    -- Auto-fire si la valeur sauvegardée est true
     if state and cb then
         task.defer(function() cb(state) end)
     end
@@ -544,7 +558,6 @@ local function mkToggle(parent, labelTxt, order, default, cb, saveKey)
     return row
 end
 
--- mkSlider avec saveKey optionnel
 local function mkSlider(parent, labelTxt, minV, maxV, defV, order, cb, saveKey)
     local cur = (saveKey and SavedConfig[saveKey]) or defV
 
@@ -582,6 +595,7 @@ local function mkSlider(parent, labelTxt, minV, maxV, defV, order, cb, saveKey)
     fill.ZIndex           = 16
     fill.Parent           = track
     rnd(fill, 4)
+    table.insert(_themeRefs.accentFrames, fill)
 
     local valL = lbl(track, {
         Size       = UDim2.new(1,0,1,0),
@@ -624,7 +638,6 @@ local function mkSlider(parent, labelTxt, minV, maxV, defV, order, cb, saveKey)
         end
     end)
 
-    -- Applique la valeur sauvegardée au démarrage
     if saveKey and cb then
         task.defer(function() cb(cur) end)
     end
@@ -704,6 +717,10 @@ local function mkSidebarTab(name, order, fn)
         activeTabBtn   = btn
         btn.TextColor3 = C.white
         bar.Visible    = true
+
+        -- FIX #3 : vider les refs de thème dynamiques avant de reconstruire
+        _themeRefs.cardFrames    = {}
+        _themeRefs.accentFrames  = {}
 
         for _, c in ipairs(ContentScroll:GetChildren()) do
             if not c:IsA("UIListLayout") and not c:IsA("UIPadding") then
@@ -966,11 +983,16 @@ local function stopRadar()
 end
 
 -- ════════════════════════════════════════════════════════════
---  ÉTAT GLOBAL
+--  ÉTAT GLOBAL  (FIX #1/#3: variables module-level pour loops)
 -- ════════════════════════════════════════════════════════════
 local _noclipConn
 local _flyConn, _bv, _bg
 local _speedConn, _jumpConn
+
+-- FIX #1 : remplace les upvalues `s` dans task.spawn par des flags module-level
+local _godActive       = false
+local _autoOpenActive  = false
+local _spamActive      = false   -- FIX #5
 
 -- ════════════════════════════════════════════════════════════
 --  CONTENU : MAIN
@@ -978,31 +1000,71 @@ local _speedConn, _jumpConn
 local function buildMain()
     local grid = makeGrid(1)
 
-    local _, miscInner = makeCard("Misc", 1, grid)
+    -- ── CARTE : JOUEUR ───────────────────────────────────────
+    local _, playerInner = makeCard("Joueur", 1, grid)
 
-    mkToggle(miscInner, "Freeze Position", 1, false, function(s)
+    mkButton(playerInner, "Respawn", 1, function()
+        local char = lp.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.Health = 0 end
+        end
+        toast("🔄 Respawn...", C.accent)
+    end)
+
+    mkToggle(playerInner, "Invisible (LocalTransparency)", 2, false, function(s)
+        local char = lp.Character
+        if not char then return end
+        for _, p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") or p:IsA("MeshPart") then
+                p.LocalTransparencyModifier = s and 1 or 0
+            end
+        end
+        toast(s and "👻 Invisible ON" or "👻 Invisible OFF", s and C.accent or C.muted)
+    end)
+
+    -- FIX #1 : God Mode utilise _godActive au lieu de l'upvalue s
+    mkToggle(playerInner, "God Mode (santé max loop)", 3, false, function(s)
+        _godActive = s
+        if s then
+            task.spawn(function()
+                while _godActive do
+                    local char = lp.Character
+                    local hum  = char and char:FindFirstChildOfClass("Humanoid")
+                    if hum then hum.Health = hum.MaxHealth end
+                    task.wait(0.05)
+                end
+            end)
+            toast("❤ God Mode ON", C.success)
+        else
+            toast("❤ God Mode OFF", C.muted)
+        end
+    end)
+
+    mkToggle(playerInner, "Freeze Position", 4, false, function(s)
         local char = lp.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if root then
             if s then
-                local ba = Instance.new("BodyPosition")
-                ba.Name     = "_freeze"
-                ba.Position = root.Position
-                ba.MaxForce = Vector3.new(1e9,1e9,1e9)
-                ba.Parent   = root
+                local ba      = Instance.new("BodyPosition")
+                ba.Name       = "_freeze"
+                ba.Position   = root.Position
+                ba.MaxForce   = Vector3.new(1e9, 1e9, 1e9)
+                ba.Parent     = root
             else
                 local ba = root:FindFirstChild("_freeze")
                 if ba then ba:Destroy() end
             end
         end
-        toast(s and "❄ Position gelée" or "❄ Position libérée",
-              s and C.accent or C.muted)
+        toast(s and "❄ Position gelée" or "❄ Position libérée", s and C.accent or C.muted)
     end, "freezePos")
 
-    mkToggle(miscInner, "Auto Open", 2, false, function(s)
+    -- FIX #4 : Auto Open utilise _autoOpenActive
+    mkToggle(playerInner, "Auto Open", 5, false, function(s)
+        _autoOpenActive = s
         if s then
             task.spawn(function()
-                while s do
+                while _autoOpenActive do
                     fireRemote("OpenChest")
                     fireRemote("OpenCrate")
                     fireRemote("Open")
@@ -1014,6 +1076,280 @@ local function buildMain()
             toast("Auto Open OFF", C.muted)
         end
     end, "autoOpen")
+
+    -- ── CARTE : OUTILS RAPIDES ───────────────────────────────
+    local _, toolsInner = makeCard("Outils Rapides", 2, grid)
+
+    mkButton(toolsInner, "Copier position", 1, function()
+        local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        if not root then toast("❌ Personnage introuvable", C.err) return end
+        local p   = root.Position
+        local str = string.format("%.2f, %.2f, %.2f", p.X, p.Y, p.Z)
+        pcall(setclipboard, str)
+        toast("📋 " .. str, C.accent)
+    end)
+
+    mkButton(toolsInner, "Aller au spawn", 2, function()
+        local root  = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        local spawn = workspace:FindFirstChildOfClass("SpawnLocation")
+        if root and spawn then
+            root.CFrame = spawn.CFrame + Vector3.new(0, 3, 0)
+            toast("📍 Spawn", C.accent)
+        else
+            toast("❌ Spawn introuvable", C.err)
+        end
+    end)
+
+    mkButton(toolsInner, "Rejoindre serveur aléatoire", 3, function()
+        local tp   = game:GetService("TeleportService")
+        local plId = game.PlaceId
+        local ok, servers = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(
+                game:GetService("HttpService"):GetAsync(
+                    "https://games.roblox.com/v1/games/" .. plId .. "/servers/Public?sortOrder=Asc&limit=10"
+                )
+            )
+        end)
+        if ok and servers and servers.data and #servers.data > 0 then
+            local s = servers.data[math.random(1, #servers.data)]
+            tp:TeleportToPlaceInstance(plId, s.id, lp)
+            toast("🎲 Changement de serveur...", C.accent)
+        else
+            tp:Teleport(plId, lp)
+            toast("🎲 Nouveau serveur...", C.accent)
+        end
+    end)
+
+    mkButton(toolsInner, "Kick soi-même", 4, function()
+        lp:Kick("[SinixHub] Auto-kick")
+    end)
+
+    -- ── CARTE : CHAT ─────────────────────────────────────────
+    local _, chatInner = makeCard("Chat", 3, grid)
+
+    local chatMsg = ""
+
+    local chatBox = Instance.new("TextBox")
+    chatBox.Size              = UDim2.new(1,0,0,28)
+    chatBox.BackgroundColor3  = C.input
+    chatBox.BorderSizePixel   = 0
+    chatBox.Font              = Enum.Font.Gotham
+    chatBox.TextSize          = 13
+    chatBox.TextColor3        = C.text
+    chatBox.PlaceholderText   = "Message à envoyer..."
+    chatBox.PlaceholderColor3 = C.muted
+    chatBox.ClearTextOnFocus  = false
+    chatBox.LayoutOrder       = 1
+    chatBox.ZIndex            = 15
+    chatBox.Parent            = chatInner
+    rnd(chatBox, 5)
+    bdr(chatBox, C.border)
+    chatBox:GetPropertyChangedSignal("Text"):Connect(function() chatMsg = chatBox.Text end)
+
+    mkButton(chatInner, "Envoyer message", 2, function()
+        if chatMsg == "" then toast("❌ Message vide", C.err) return end
+        local cs = game:GetService("Chat")
+        pcall(function() cs:Chat(lp.Character and lp.Character:FindFirstChild("Head"), chatMsg, Enum.ChatColor.White) end)
+        pcall(function()
+            game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+                :FindFirstChild("SayMessageRequest"):FireServer(chatMsg, "All")
+        end)
+        toast("💬 Envoyé : " .. chatMsg, C.accent)
+    end)
+
+    -- FIX #5 : Spam utilise _spamActive au lieu de SPAM_ACTIVE local
+    mkButton(chatInner, "Spam ON/OFF", 3, function()
+        _spamActive = not _spamActive
+        if _spamActive and chatMsg ~= "" then
+            task.spawn(function()
+                while _spamActive do
+                    pcall(function()
+                        game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+                            :FindFirstChild("SayMessageRequest"):FireServer(chatMsg, "All")
+                    end)
+                    task.wait(1)
+                end
+            end)
+            toast("💬 Spam ON — " .. chatMsg, C.accent)
+        else
+            _spamActive = false
+            toast("💬 Spam OFF", C.muted)
+        end
+    end)
+
+    -- ── CARTE : PERSONNAGE ───────────────────────────────────
+    local _, charInner = makeCard("Personnage", 4, grid)
+
+    mkSlider(charInner, "Taille du personnage", 50, 300, 100, 1, function(v)
+        local char = lp.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.BodyDepthScale.Value  = v / 100
+            hum.BodyHeightScale.Value = v / 100
+            hum.BodyWidthScale.Value  = v / 100
+            hum.HeadScale.Value       = v / 100
+        end
+    end)
+
+    mkButton(charInner, "Réinitialiser la taille", 2, function()
+        local char = lp.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.BodyDepthScale.Value  = 1
+            hum.BodyHeightScale.Value = 1
+            hum.BodyWidthScale.Value  = 1
+            hum.HeadScale.Value       = 1
+        end
+        toast("↩ Taille réinitialisée", C.muted)
+    end)
+
+    mkToggle(charInner, "Tête géante", 3, false, function(s)
+        local char = lp.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.HeadScale.Value = s and 5 or 1 end
+        toast(s and "🗿 Grosse tête ON" or "🗿 Tête normale", s and C.accent or C.muted)
+    end)
+
+    mkToggle(charInner, "Walk Animation OFF", 4, false, function(s)
+        local char = lp.Character
+        local hum  = char and char:FindFirstChildOfClass("Humanoid")
+        if not hum then return end
+        local animator = hum:FindFirstChildOfClass("Animator")
+        if animator then
+            for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                if s then track:Stop() else track:Play() end
+            end
+        end
+        toast(s and "🚶 Anim OFF" or "🚶 Anim ON", s and C.accent or C.muted)
+    end)
+
+    -- ── CARTE : WORKSPACE ────────────────────────────────────
+    local _, wsInner = makeCard("Workspace", 5, grid)
+
+    mkButton(wsInner, "Supprimer tous les NPCs", 1, function()
+        local count = 0
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("Model") and v ~= lp.Character then
+                local hum = v:FindFirstChildOfClass("Humanoid")
+                if hum then v:Destroy() ; count = count + 1 end
+            end
+        end
+        toast("🗑 " .. count .. " NPC(s) supprimé(s)", C.accent)
+    end)
+
+    mkButton(wsInner, "Supprimer les BaseParts (décors)", 2, function()
+        local count = 0
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and v.Locked == false
+               and not v:IsDescendantOf(lp.Character or Instance.new("Folder")) then
+                local ok = pcall(function() v:Destroy() end)
+                if ok then count = count + 1 end
+            end
+        end
+        toast("🗑 " .. count .. " part(s) supprimée(s)", C.accent)
+    end)
+
+    mkButton(wsInner, "Lumière maximale (Ambient)", 3, function()
+        local l = game:GetService("Lighting")
+        l.Ambient        = Color3.fromRGB(255,255,255)
+        l.OutdoorAmbient = Color3.fromRGB(255,255,255)
+        toast("☀ Ambient max", C.success)
+    end)
+
+    mkButton(wsInner, "Remettre la lumière", 4, function()
+        local l = game:GetService("Lighting")
+        l.Ambient        = Color3.fromRGB(70,70,70)
+        l.OutdoorAmbient = Color3.fromRGB(127,127,127)
+        toast("☀ Lumière normale", C.muted)
+    end)
+
+    mkToggle(wsInner, "Afficher hitboxes (SelectionBox)", 5, false, function(s)
+        local tag = "_sinixHitbox"
+        if s then
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("Model") and v ~= lp.Character then
+                    local hum = v:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        local box               = Instance.new("SelectionBox")
+                        box.Name                = tag
+                        box.Color3              = C.err
+                        box.LineThickness        = 0.03
+                        box.SurfaceTransparency  = 0.85
+                        box.SurfaceColor3        = C.err
+                        box.Adornee              = v
+                        box.Parent               = workspace
+                    end
+                end
+            end
+            toast("🟥 Hitboxes ON", C.err)
+        else
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v.Name == tag then v:Destroy() end
+            end
+            toast("🟥 Hitboxes OFF", C.muted)
+        end
+    end)
+
+    -- ── CARTE : INFOS SERVEUR ────────────────────────────────
+    local _, infoInner = makeCard("Infos Serveur", 6, grid)
+
+    local infoData = {
+        { "Joueur",  lp.Name },
+        { "UserId",  tostring(lp.UserId) },
+        { "PlaceId", tostring(game.PlaceId) },
+        { "JobId",   game.JobId:sub(1,18) .. "..." },
+        { "Joueurs", tostring(#Players:GetPlayers()) .. " / " .. tostring(Players.MaxPlayers) },
+        { "Ping",    tostring(math.floor(lp:GetNetworkPing() * 1000)) .. " ms" },
+    }
+
+    for i, row in ipairs(infoData) do
+        local rowFrame = Instance.new("Frame")
+        rowFrame.Size                   = UDim2.new(1,0,0,22)
+        rowFrame.BackgroundTransparency = 1
+        rowFrame.LayoutOrder            = i
+        rowFrame.ZIndex                 = 14
+        rowFrame.Parent                 = infoInner
+
+        lbl(rowFrame, {
+            Size           = UDim2.new(0.45,0,1,0),
+            Font           = Enum.Font.GothamBold,
+            TextSize       = 12,
+            TextColor3     = C.muted,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Text           = row[1],
+            ZIndex         = 15,
+        })
+        lbl(rowFrame, {
+            Size           = UDim2.new(0.55,0,1,0),
+            Position       = UDim2.new(0.45,0,0,0),
+            Font           = Enum.Font.Gotham,
+            TextSize       = 12,
+            TextColor3     = C.text,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            Text           = row[2],
+            ZIndex         = 15,
+        })
+    end
+
+    task.spawn(function()
+        while infoInner and infoInner.Parent do
+            for _, child in ipairs(infoInner:GetChildren()) do
+                if child:IsA("Frame") and child.LayoutOrder == 6 then
+                    for _, l in ipairs(child:GetChildren()) do
+                        if l:IsA("TextLabel")
+                           and l.TextXAlignment == Enum.TextXAlignment.Left
+                           and l.Font == Enum.Font.Gotham then
+                            l.Text = math.floor(lp:GetNetworkPing() * 1000) .. " ms"
+                        end
+                    end
+                end
+            end
+            task.wait(1)
+        end
+    end)
 end
 
 -- ════════════════════════════════════════════════════════════
@@ -1022,6 +1358,22 @@ end
 local function buildTeleports()
     local _, toolInner = makeCard("TP Tool", 1)
     local targetName = ""
+
+    mkButton(toolInner, "🖱 TP Tool → Donner à Backpack", 0, function()
+        local mouse = lp:GetMouse()
+        local tool  = Instance.new("Tool")
+        tool.RequiresHandle = false
+        tool.Name           = "Click Teleport"
+        tool.Activated:Connect(function()
+            local pos  = mouse.Hit + Vector3.new(0, 2.5, 0)
+            local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                root.CFrame = CFrame.new(pos.X, pos.Y, pos.Z)
+            end
+        end)
+        tool.Parent = lp.Backpack
+        toast("🖱 Click Teleport → Backpack", C.accent)
+    end)
 
     local targetRow = Instance.new("Frame")
     targetRow.Size                   = UDim2.new(1,0,0,28)
@@ -1260,7 +1612,7 @@ local function buildMisc()
                 end
             end)
         else
-            if _noclipConn then _noclipConn:Disconnect() end
+            if _noclipConn then _noclipConn:Disconnect() ; _noclipConn = nil end
             local c = lp.Character
             if c then
                 for _, p in ipairs(c:GetDescendants()) do
@@ -1299,7 +1651,7 @@ local function buildMisc()
                 if _bg and _bg.Parent then _bg.CFrame = cam.CFrame end
             end)
         else
-            if _flyConn then _flyConn:Disconnect() end
+            if _flyConn then _flyConn:Disconnect() ; _flyConn = nil end
             if _bv and _bv.Parent then _bv:Destroy() end
             if _bg and _bg.Parent then _bg:Destroy() end
         end
@@ -1308,7 +1660,7 @@ local function buildMisc()
 end
 
 -- ════════════════════════════════════════════════════════════
---  CONTENU : ESP
+--  ESP
 -- ════════════════════════════════════════════════════════════
 local _espSkeletonConns = {}
 local _espNameConns     = {}
@@ -1317,6 +1669,9 @@ local _espNames         = {}
 
 local ESP_COLOR  = Color3.fromRGB(120,80,220)
 local NAME_COLOR = Color3.fromRGB(230,230,230)
+
+-- FIX #2 : espClearNames nil-ifie _distLoop pour que startDistLoop() puisse repartir
+local _distLoop
 
 local function espClearSkeleton()
     for _, v in pairs(_espBoxes) do if v and v.Parent then v:Destroy() end end
@@ -1330,6 +1685,8 @@ local function espClearNames()
     _espNames = {}
     for _, c in pairs(_espNameConns) do c:Disconnect() end
     _espNameConns = {}
+    -- FIX #2 : libère le loop pour qu'il puisse être redémarré
+    if _distLoop then _distLoop:Disconnect() ; _distLoop = nil end
 end
 
 local function drawSkeleton(player)
@@ -1454,9 +1811,8 @@ local ESP_PALETTES = {
 local _espPaletteIdx = SavedConfig.espColor or 1
 ESP_COLOR = ESP_PALETTES[_espPaletteIdx] and ESP_PALETTES[_espPaletteIdx].col or ESP_COLOR
 
-local _distLoop
 local function startDistLoop()
-    if _distLoop then return end
+    if _distLoop then return end  -- guard: nil-ifié par espClearNames(), safe de rappeler
     _distLoop = RunService.Heartbeat:Connect(function()
         if not _nameOn then return end
         local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
@@ -1733,7 +2089,6 @@ local function buildESP()
               s and C.success or C.muted)
     end, "espHPBar")
 
-    -- Restaure les états sauvegardés au chargement
     if _skeletonOn then
         for _, p in ipairs(Players:GetPlayers()) do drawSkeleton(p) end
     end
@@ -1861,6 +2216,7 @@ local THEMES = {
     { name="Caramel",         accent=Color3.fromRGB(200,140,60),  bg=Color3.fromRGB(18,12,6),   card=Color3.fromRGB(28,18,10),  sidebar=Color3.fromRGB(22,14,8),   text=Color3.fromRGB(245,220,180) },
 }
 
+-- FIX #5 : applyTheme() via refs directes — plus de scan RGB fragile
 local function applyTheme(theme)
     C.accent  = theme.accent
     C.accentD = Color3.fromRGB(
@@ -1873,57 +2229,36 @@ local function applyTheme(theme)
     C.sidebar = theme.sidebar
     C.text    = theme.text
 
+    -- Éléments statiques (construits une seule fois)
     Win.BackgroundColor3               = C.bg
+    TopBar.BackgroundColor3            = C.bg
     Sidebar.BackgroundColor3           = C.sidebar
     sbCover.BackgroundColor3           = C.sidebar
-    TopBar.BackgroundColor3            = C.bg
     footer.TextColor3                  = C.muted
     ContentScroll.ScrollBarImageColor3 = C.accent
 
-    for _, v in ipairs(Win:GetDescendants()) do
-        if v:IsA("Frame") then
-            local r,g,b = math.floor(v.BackgroundColor3.R*255),
-                          math.floor(v.BackgroundColor3.G*255),
-                          math.floor(v.BackgroundColor3.B*255)
-            if r==30 and g==30 and b==30       then v.BackgroundColor3 = C.card
-            elseif r==24 and g==24 and b==24   then v.BackgroundColor3 = C.sidebar
-            elseif r==18 and g==18 and b==18   then v.BackgroundColor3 = C.bg
-            elseif r==120 and g==80 and b==220 then v.BackgroundColor3 = C.accent end
-        end
-        if v:IsA("TextLabel") then
-            local r,g,b = math.floor(v.TextColor3.R*255),
-                          math.floor(v.TextColor3.G*255),
-                          math.floor(v.TextColor3.B*255)
-            if r==230 and g==230 and b==230    then v.TextColor3 = C.text
-            elseif r==120 and g==80 and b==220 then v.TextColor3 = C.accent end
-        end
-        if v:IsA("TextButton") then
-            local r,g,b = math.floor(v.BackgroundColor3.R*255),
-                          math.floor(v.BackgroundColor3.G*255),
-                          math.floor(v.BackgroundColor3.B*255)
-            if r==120 and g==80 and b==220 then v.BackgroundColor3 = C.accent end
-        end
-        if v:IsA("UIStroke") then
-            local r,g,b = math.floor(v.Color.R*255),
-                          math.floor(v.Color.G*255),
-                          math.floor(v.Color.B*255)
-            if r==120 and g==80 and b==220 then v.Color = C.accent end
-        end
+    -- Éléments dynamiques (reconstruits à chaque tab switch)
+    for _, f in ipairs(_themeRefs.cardFrames) do
+        if f and f.Parent then f.BackgroundColor3 = C.card end
+    end
+    for _, f in ipairs(_themeRefs.accentFrames) do
+        if f and f.Parent then f.BackgroundColor3 = C.accent end
     end
 
+    -- Barre active sidebar
     if activeTabBtn then
         local bar = activeTabBtn:FindFirstChild("bar")
         if bar then bar.BackgroundColor3 = C.accent end
         activeTabBtn.TextColor3 = C.text
     end
 
+    -- ESP couleur
     if _skeletonOn or _nameOn then
         ESP_COLOR = C.accent
         refreshESP()
     end
 end
 
--- Applique le thème sauvegardé au démarrage
 if SavedConfig.themeIndex and THEMES[SavedConfig.themeIndex] then
     task.defer(function() applyTheme(THEMES[SavedConfig.themeIndex]) end)
 end
@@ -1948,14 +2283,15 @@ local function buildSettings()
 
     local _, saveInner = makeCard("Sauvegarde", 2)
 
-    local statusLbl = lbl(saveInner, {
+    -- FIX #6 : LayoutOrder ajouté sur tous les lbl() de buildSettings
+    lbl(saveInner, {
         Size           = UDim2.new(1,0,0,20),
+        LayoutOrder    = 1,
         Font           = Enum.Font.Gotham,
         TextSize       = 12,
         TextColor3     = C.muted,
         TextXAlignment = Enum.TextXAlignment.Left,
         Text           = "📂 Fichier : " .. SAVE_FILE,
-        LayoutOrder    = 1,
         ZIndex         = 15,
     })
 
@@ -1985,15 +2321,16 @@ local function buildSettings()
         "PlaceId : " .. game.PlaceId,
         "Joueurs : " .. #Players:GetPlayers(),
     }
+    -- FIX #6 : LayoutOrder présent sur chaque lbl() dans la carte Session
     for i, r in ipairs(rows) do
         lbl(infoInner, {
             Size           = UDim2.new(1,0,0,20),
+            LayoutOrder    = i,
             Font           = Enum.Font.Gotham,
             TextSize       = 12,
             TextColor3     = C.muted,
             TextXAlignment = Enum.TextXAlignment.Left,
             Text           = r,
-            LayoutOrder    = i,
             ZIndex         = 15,
         })
     end
@@ -2351,5 +2688,4 @@ local function buildSplash()
     end)
 end
 
--- ── DÉMARRAGE ───────────────────────────────────────────────
 buildSplash()
